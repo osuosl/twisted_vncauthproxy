@@ -25,12 +25,13 @@ class VNCAuthenticator(Proxy):
 
     VERSION = "RFB 003.008\n"
 
-    def __init__(self):
+    def __init__(self, password):
         self.buf = ""
-
         self.state = STATE_VERSION
 
         self._connection_d = Deferred()
+
+        self.password = password
 
     def onConnect(self):
         if self._connection_d:
