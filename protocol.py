@@ -1,6 +1,7 @@
 from os import urandom
 
-from twisted.internet.protocol import Protocol
+from twisted.internet.defer import Deferred, succeed
+from twisted.protocols.portforward import Proxy
 from twisted.python import log
 
 from d3des import generate_response
@@ -14,7 +15,7 @@ from rfb import check_password
     STATE_CONNECTED
 ) = range(5)
 
-class VNCAuthenticator(Protocol):
+class VNCAuthenticator(Proxy):
     """
     Base class for VNC protocols.
 
@@ -29,12 +30,33 @@ class VNCAuthenticator(Protocol):
 
         self.state = STATE_VERSION
 
-    def connectionLost(self):
+        self._connection_d = Deferred()
+
+    def onConnect(self):
+        if self._connection_d:
+            return self._connection_d
+        else:
+            return succeed(self)
+
+    def dataReceived(self, data):
+        if self.state == STATE_CONNECTED:
+            if self._connection_d:
+                self._connection_d.callback(self)
+                self._connection_d = None
+            Proxy.dataReceived(self, data)
+
+    def connectionLost(self, reason):
         log.err("Connection lost...")
         if self.buf:
             log.err("Remaining buffer: %r" % self.buf)
 
-class VNCServerAuthenticator(Protocol):
+        if self.state == STATE_CONNECTED:
+            Proxy.connectionLost(self, reason)
+
+        if self._connection_d:
+            self._connection_d.errback(reason)
+
+class VNCServerAuthenticator(VNCAuthenticator):
     """
     Trivial server protocol which can authenticate VNC clients.
 
@@ -111,10 +133,14 @@ class VNCServerAuthenticator(Protocol):
                 log.err("Couldn't authenticate...")
                 self.transport.loseConnection()
 
+        else:
+            VNCAuthenticator.dataReceived(self, self.buf)
+            self.buf = ""
+
     def connectionMade(self):
         self.transport.write(self.VERSION)
 
-class VNCClientAuthenticator(Protocol):
+class VNCClientAuthenticator(VNCAuthenticator):
     """
     Trivial client protocol which can authenticate itself to a VNC server.
 
@@ -207,3 +233,7 @@ class VNCClientAuthenticator(Protocol):
             else:
                 log.err("Failed authentication.")
                 self.transport.loseConnection()
+
+        else:
+            VNCAuthenticator.dataReceived(self, self.buf)
+            self.buf = ""
