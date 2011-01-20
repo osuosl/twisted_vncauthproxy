@@ -1,3 +1,4 @@
+from twisted.internet import reactor
 from twisted.trial import unittest
 
 from vncap.control import ControlProtocol, ControlFactory
@@ -42,3 +43,14 @@ class TestControlProtocolUsage(unittest.TestCase):
             self.assertTrue(self.cp.transport.buf.startswith("FAILED"),
                 "%s didn't cause an error" % line)
             self.cp.transport.buf = ""
+
+    def test_privileged_port(self):
+        self.cp.lineReceived("1:localhost:1:password")
+        self.assertTrue(self.cp.transport.buf.startswith("FAILED"))
+
+    def test_forwarding(self):
+        self.cp.lineReceived("55555:localhost:55555:password")
+        self.assertTrue(self.cp.transport.buf.startswith("OK"))
+
+        # Clean up...
+        reactor.removeAll()
