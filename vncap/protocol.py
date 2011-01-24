@@ -29,21 +29,10 @@ class VNCAuthenticator(Proxy):
         self.buf = ""
         self.state = STATE_VERSION
 
-        self._connection_d = Deferred()
-
         self.password = password
-
-    def onConnect(self):
-        if self._connection_d:
-            return self._connection_d
-        else:
-            return succeed(self)
 
     def dataReceived(self, data):
         if self.state == STATE_CONNECTED:
-            if self._connection_d:
-                self._connection_d.callback(self)
-                self._connection_d = None
             Proxy.dataReceived(self, data)
 
     def connectionLost(self, reason):
@@ -53,9 +42,6 @@ class VNCAuthenticator(Proxy):
 
         if self.state == STATE_CONNECTED:
             Proxy.connectionLost(self, reason)
-
-        if self._connection_d:
-            self._connection_d.errback(reason)
 
 class VNCServerAuthenticator(VNCAuthenticator):
     """
