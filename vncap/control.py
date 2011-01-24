@@ -1,24 +1,34 @@
+from json import loads
+
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from twisted.internet.protocol import ServerFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 
-from factory import VNCProxy
+from vncap.factory import VNCProxy
+from vncap.site import VNCSite
 
 class ControlProtocol(LineReceiver):
 
     def lineReceived(self, line):
+        log.msg("Received line %s" % line)
         try:
-            sport, host, dport, password = line.split(":", 3)
-            sport = int(sport)
-            dport = int(dport)
-            factory = VNCProxy(host, dport, password)
+            d = loads(line)
+            sport = d["sport"]
+            host = d["daddr"]
+            dport = d["dport"]
+            password = d["password"]
+            if not sport:
+                sport = self.factory.assign_port()
+
+            #factory = VNCProxy(host, dport, password)
+            factory = VNCSite(password)
             reactor.listenTCP(sport, factory)
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
-            self.sendLine("OK")
+            self.sendLine("%d" % sport)
         except ValueError:
-            log.err("Couldn't handle line %r" % line)
+            log.err("Couldn't handle line %s" % line)
             self.sendLine("FAILED")
         except CannotListenError:
             log.err("Couldn't bind port %d" % sport)
@@ -28,3 +38,12 @@ class ControlProtocol(LineReceiver):
 
 class ControlFactory(ServerFactory):
     protocol = ControlProtocol
+
+    def __init__(self):
+        self.pool = set()
+        self.pool_counter = 12000
+
+    def assign_port(self):
+        # XXX hax
+        self.pool_counter += 1
+        return self.pool_counter
