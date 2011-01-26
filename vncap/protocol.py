@@ -118,10 +118,11 @@ class VNCServerAuthenticator(VNCAuthenticator):
                 return
             elif result:
                 log.msg("Successfully authenticated!")
-                self.transport.write("\x00")
+                self.transport.write("\x00\x00\x00\x00")
                 self.state = STATE_CONNECTED
             else:
                 log.err("Couldn't authenticate...")
+                self.transport.write("\x00\x00\x00\x01")
                 self.transport.loseConnection()
 
         else:
