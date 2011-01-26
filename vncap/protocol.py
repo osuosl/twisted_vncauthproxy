@@ -1,6 +1,6 @@
 from os import urandom
 
-from twisted.protocols.portforward import Proxy
+from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 
 from d3des import generate_response
@@ -14,7 +14,7 @@ from rfb import check_password
     STATE_CONNECTED
 ) = range(5)
 
-class VNCAuthenticator(Proxy):
+class VNCAuthenticator(StatefulProtocol):
     """
     Base class for VNC protocols.
 
@@ -25,22 +25,14 @@ class VNCAuthenticator(Proxy):
     VERSION = "RFB 003.008\n"
 
     def __init__(self, password):
-        self.buf = ""
-        self.state = STATE_VERSION
-
         self.password = password
 
-    def dataReceived(self, data):
-        if self.state == STATE_CONNECTED:
-            Proxy.dataReceived(self, data)
+    def authenticated(self):
+        """
+        Switch to proxy mode.
+        """
 
-    def connectionLost(self, reason):
-        log.err("Connection lost...")
-        if self.buf:
-            log.err("Remaining buffer: %r" % self.buf)
-
-        if self.state == STATE_CONNECTED:
-            Proxy.connectionLost(self, reason)
+        log.msg("Successfully authenticated!")
 
 class VNCServerAuthenticator(VNCAuthenticator):
     """
@@ -50,87 +42,54 @@ class VNCServerAuthenticator(VNCAuthenticator):
     protocols.
     """
 
-    def pick_security_types(self):
+    def connectionMade(self):
+        self.transport.write(self.VERSION)
+
+    def getInitialState(self):
+        return self.check_version, 12
+
+    def check_version(self, version):
+        if version == self.VERSION:
+            log.msg("Checked version!")
+            self.transport.write("\x02\x01\x02")
+            return self.select_security_type, 1
+        else:
+            log.err("Can't handle VNC version %s" % version)
+            self.transport.loseConnection()
+
+    def select_security_type(self, security_type):
         """
         Choose the security type that the client wants.
         """
+        log.msg("trace pick_security_types")
 
-        if not self.buf:
-            return
-
-        security_type = ord(self.buf[0])
-        self.buf = self.buf[1:]
+        security_type = ord(security_type)
 
         if security_type == 2:
-            self.vnc_authentication_challenge()
-            self.handshaker = self.vnc_authentication_result
+            # VNC authentication. Issue our challenge.
+            self.challenge = urandom(16)
+            self.transport.write(self.challenge)
+
+            return self.vnc_authentication_result, 16
         elif security_type == 1:
-            self.no_authentication_challenge()
-            self.handshaker = self.no_authentication_result
+            # No authentication. Just move to the SecurityResult.
+            self.authenticated()
         else:
             log.err("Couldn't agree on an authentication scheme!")
             self.transport.loseConnection()
 
-        self.state = STATE_RESULT
+    def vnc_authentication_result(self, response):
+        log.msg("Doing VNC auth, buf %r" % response)
 
-    def no_authentication_challenge(self):
-        pass
-
-    def no_authentication_result(self):
-        # Whew! That was easy!
-        return True
-
-    def vnc_authentication_challenge(self):
-        self.challenge = urandom(16)
-        self.transport.write(self.challenge)
-
-    def vnc_authentication_result(self):
-        if len(self.buf) < 16:
-            return
-
-        response, self.buf = self.buf[:16], self.buf[16:]
-
-        return check_password(self.challenge, response, self.password)
-
-    def dataReceived(self, data):
-        self.buf += data
-
-        if self.state == STATE_VERSION:
-            # Waiting for a 12-byte magic number.
-            if len(self.buf) < 12:
-                return
-            version, self.buf = self.buf[:12], self.buf[12:]
-            if version == self.VERSION:
-                # We support two security types: none, and VNC.
-                self.transport.write("\x02\x01\x02")
-                self.state = STATE_SECURITY_TYPES
-            else:
-                log.err("Failed version check: %s" % version)
-                self.transport.loseConnection()
-
-        elif self.state == STATE_SECURITY_TYPES:
-            self.pick_security_types()
-
-        elif self.state == STATE_RESULT:
-            result = self.handshaker()
-            if result is None:
-                # Inconclusive; need more data.
-                return
-            elif result:
-                log.msg("Successfully authenticated!")
-                self.transport.write("\x00\x00\x00\x00")
-                self.state = STATE_CONNECTED
-            else:
-                log.err("Couldn't authenticate...")
-                self.transport.write("\x00\x00\x00\x01")
-                self.transport.loseConnection()
-
+        if check_password(self.challenge, response, self.password):
+            self.authenticated()
         else:
-            VNCAuthenticator.dataReceived(self, self.buf)
-            self.buf = ""
+            log.err("Failed VNC auth!")
+            self.transport.loseConnection()
 
-    def connectionMade(self):
-        self.transport.write(self.VERSION)
+    def authenticated(self):
+        self.transport.write("\x00\x00\x00\x00")
+        VNCAuthenticator.authenticated(self)
 
 class VNCClientAuthenticator(VNCAuthenticator):
     """
@@ -140,45 +99,45 @@ class VNCClientAuthenticator(VNCAuthenticator):
     protocols.
     """
 
-    def pick_security_type(self):
+    def getInitialState(self):
+        return self.check_version, 12
+
+    def check_version(self, version):
+        if version == self.VERSION:
+            log.msg("Checked version!")
+            self.transport.write(self.VERSION)
+            return self.count_security_types, 1
+        else:
+            log.err("Can't handle VNC version %s" % version)
+            self.transport.loseConnection()
+
+    def count_security_types(self, data):
+        count = ord(data)
+
+        if not count:
+            log.err("Server wouldn't give us any security types!")
+            self.transport.loseConnection()
+
+        return self.pick_security_type, count
+
+    def pick_security_type(self, data):
         """
         Ascertain whether the server supports any security types we might
         want.
         """
 
-        if not self.buf:
-            return
-
-        count = ord(self.buf[0])
-        if count == 0:
-            log.err("Server wouldn't give us any security types!")
-            self.transport.loseConnection()
-
-        if len(self.buf) < count + 1:
-            return
-
-        # Pull types out of the buffer, and advance the buffer. (Plus one for
-        # the count byte.)
-        types, self.buf = self.buf[1:count + 1], self.buf[count + 1:]
-
-        security_types = set(ord(i) for i in types)
+        security_types = set(ord(i) for i in data)
         if 2 in security_types:
             log.msg("Choosing VNC authentication...")
             self.transport.write("\x02")
-            self.handshaker = self.vnc_authentication
+            return self.vnc_authentication, 16
         elif 1 in security_types:
             log.msg("Choosing no authentication...")
             self.transport.write("\x01")
-            self.handshaker = self.no_authentication
+            return self.security_result, 4
         else:
             log.err("Couldn't agree on an authentication scheme!")
             self.transport.loseConnection()
-
-        self.state = STATE_AUTHENTICATION
-
-    def no_authentication(self):
-        # Whew! That was easy!
-        self.state = STATE_RESULT
 
     def vnc_authentication(self):
         # Take in 16 bytes, encrypt with 3DES using the password as the key,
@@ -191,41 +150,12 @@ class VNCClientAuthenticator(VNCAuthenticator):
         response = generate_response(self.password, challenge)
         self.transport.write(response)
 
-        self.state = STATE_RESULT
+        return self.security_result, 4
 
-    def dataReceived(self, data):
-        self.buf += data
-
-        if self.state == STATE_VERSION:
-            # Waiting for a 12-byte magic number.
-            if len(self.buf) < 12:
-                return
-            version, self.buf = self.buf[:12], self.buf[12:]
-            if version == self.VERSION:
-                self.transport.send(self.version)
-                self.state = STATE_SECURITY_TYPES
-            else:
-                log.err("Failed version check: %s" % version)
-                self.transport.loseConnection()
-
-        elif self.state == STATE_SECURITY_TYPES:
-            self.pick_security_type()
-
-        elif self.state == STATE_AUTHENTICATION:
-            self.handshaker()
-
-        elif self.state == STATE_RESULT:
-            if not self.buf:
-                return
-
-            fail = ord(self.buf.pop(0))
-            if not fail:
-                log.msg("Successfully connected!")
-                self.state = STATE_CONNECTED
-            else:
-                log.err("Failed authentication.")
-                self.transport.loseConnection()
-
+    def security_result(self, data):
+        if data == "\x00\x00\x00\x01":
+            # Success!
+            self.authenticated()
         else:
-            VNCAuthenticator.dataReceived(self, self.buf)
-            self.buf = ""
+            log.err("Failed security result!")
+            self.transport.loseConnection()
