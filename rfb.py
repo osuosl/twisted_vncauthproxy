@@ -71,5 +71,5 @@ def to_u8(val):
     return pack('B', val)
 
 def check_password(challenge, response, password):
-    return d3des.generate_response((password + '\0' * 8 )[:8],
-                                   challenge) == response
+    password = password.ljust(8, "\x00")[:8]
+    return d3des.generate_response(password, challenge) == response
