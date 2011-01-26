@@ -59,6 +59,7 @@ class VNCServerAuthenticator(VNCAuthenticator):
             return
 
         security_type = ord(self.buf[0])
+        self.buf = self.buf[1:]
 
         if security_type == 2:
             self.vnc_authentication_challenge()
@@ -108,10 +109,14 @@ class VNCServerAuthenticator(VNCAuthenticator):
                 self.transport.loseConnection()
 
         elif self.state == STATE_SECURITY_TYPES:
-            self.pick_security_type()
+            self.pick_security_types()
 
         elif self.state == STATE_RESULT:
-            if self.handshaker():
+            result = self.handshaker()
+            if result is None:
+                # Inconclusive; need more data.
+                return
+            elif result:
                 log.msg("Successfully authenticated!")
                 self.transport.write("\x00")
                 self.state = STATE_CONNECTED
