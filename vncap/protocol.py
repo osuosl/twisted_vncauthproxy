@@ -1,6 +1,5 @@
 from os import urandom
 
-from twisted.internet.defer import Deferred, succeed
 from twisted.protocols.portforward import Proxy
 from twisted.python import log
 
