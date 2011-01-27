@@ -1,11 +1,12 @@
 from os import urandom
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.protocol import Factory
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
+from twisted.python.failure import Failure
 
 from d3des import generate_response
 from rfb import check_password
@@ -38,7 +39,8 @@ class VNCAuthenticator(StatefulProtocol):
         """
 
         log.msg("Successfully authenticated!")
-        reactor.callLater(0, self.authentication_d.callback)
+        self.transport.pauseProducing()
+        reactor.callLater(0, self.authentication_d.callback, self)
 
 class VNCServerAuthenticator(VNCAuthenticator):
     """
@@ -182,6 +184,35 @@ class VNCClientAuthenticatorFactory(Factory):
         p.factory = self
         return p
 
+def start_proxying(result):
+    """
+    Callback to start proxies.
+    """
+
+    log.msg("Starting proxy")
+    client_result, server_result = result
+    success, client = client_result
+    if not success:
+        return Failure("Couldn't connect on client side!")
+    success, server = server_result
+    if not success:
+        return Failure("Couldn't connect on server side!")
+    client.dataReceived = server.transport.write
+    server.dataReceived = client.transport.write
+    client.transport.resumeProducing()
+    server.transport.resumeProducing()
+    log.msg("Proxying started!")
+
+def prepare_proxy(client, server):
+    """
+    Set up the deferred proxy callback.
+    """
+
+    log.msg("Preparing proxies for client %s and server %s"
+        % (client, server))
+    dl = DeferredList([client.authentication_d, server.authentication_d])
+    dl.addCallback(start_proxying)
+
 def make_server_and_client(host, port, password):
     """
     Make a server protocol and client protocol with matching passwords, and
@@ -191,8 +222,10 @@ def make_server_and_client(host, port, password):
     and is not retrieveable.
     """
 
+    server = VNCServerAuthenticator(password)
+
     endpoint = TCP4ClientEndpoint(reactor, host, port)
     d = endpoint.connect(VNCClientAuthenticatorFactory(password))
+    d.addCallback(prepare_proxy, server)
 
-    server = VNCServerAuthenticator(password)
     return server
