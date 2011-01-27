@@ -23,7 +23,7 @@ class ControlProtocol(LineReceiver):
                 sport = self.factory.assign_port()
 
             #factory = VNCProxy(host, dport, password)
-            factory = VNCSite(password)
+            factory = VNCSite(host, dport, password)
             reactor.listenTCP(sport, factory)
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)

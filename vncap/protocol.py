@@ -1,5 +1,9 @@
 from os import urandom
 
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred
+from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.protocol import Factory
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 
@@ -26,6 +30,7 @@ class VNCAuthenticator(StatefulProtocol):
 
     def __init__(self, password):
         self.password = password
+        self.authentication_d = Deferred()
 
     def authenticated(self):
         """
@@ -33,6 +38,7 @@ class VNCAuthenticator(StatefulProtocol):
         """
 
         log.msg("Successfully authenticated!")
+        reactor.callLater(0, self.authentication_d.callback)
 
 class VNCServerAuthenticator(VNCAuthenticator):
     """
@@ -99,7 +105,12 @@ class VNCClientAuthenticator(VNCAuthenticator):
     protocols.
     """
 
+    def __init__(self, *args, **kwargs):
+        VNCAuthenticator.__init__(self, *args, **kwargs)
+        log.msg("Init'd client")
+
     def getInitialState(self):
+        log.msg("Client initial state")
         return self.check_version, 12
 
     def check_version(self, version):
@@ -159,3 +170,29 @@ class VNCClientAuthenticator(VNCAuthenticator):
         else:
             log.err("Failed security result!")
             self.transport.loseConnection()
+
+class VNCClientAuthenticatorFactory(Factory):
+    protocol = VNCClientAuthenticator
+
+    def __init__(self, password):
+        self.password = password
+
+    def buildProtocol(self, addr):
+        p = self.protocol(self.password)
+        p.factory = self
+        return p
+
+def make_server_and_client(host, port, password):
+    """
+    Make a server protocol and client protocol with matching passwords, and
+    glue them together so that they will auto-proxy after authenticating.
+
+    Returns the server protocol. The client protocol is automatically started
+    and is not retrieveable.
+    """
+
+    endpoint = TCP4ClientEndpoint(reactor, host, port)
+    d = endpoint.connect(VNCClientAuthenticatorFactory(password))
+
+    server = VNCServerAuthenticator(password)
+    return server
