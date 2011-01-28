@@ -38,7 +38,7 @@ class VNCAuthenticator(StatefulProtocol):
         Switch to proxy mode.
         """
 
-        log.msg("Successfully authenticated!")
+        log.msg("Successfully authenticated %s!" % self)
         self.transport.pauseProducing()
         reactor.callLater(0, self.authentication_d.callback, self)
 
@@ -140,6 +140,9 @@ class VNCClientAuthenticator(VNCAuthenticator):
         """
 
         security_types = set(ord(i) for i in data)
+        log.msg("Available authentication methods: %s"
+            % ", ".join(hex(i) for i in security_types))
+
         if 2 in security_types:
             log.msg("Choosing VNC authentication...")
             self.transport.write("\x02")
@@ -152,13 +155,9 @@ class VNCClientAuthenticator(VNCAuthenticator):
             log.err("Couldn't agree on an authentication scheme!")
             self.transport.loseConnection()
 
-    def vnc_authentication(self):
+    def vnc_authentication(self, challenge):
         # Take in 16 bytes, encrypt with 3DES using the password as the key,
         # and send the response.
-        if len(self.buf) < 16:
-            return
-
-        challenge, self.buf = self.buf[:16], self.buf[16:]
 
         response = generate_response(self.password, challenge)
         self.transport.write(response)
@@ -166,7 +165,8 @@ class VNCClientAuthenticator(VNCAuthenticator):
         return self.security_result, 4
 
     def security_result(self, data):
-        if data == "\x00\x00\x00\x01":
+        log.msg("trace authenticated")
+        if data == "\x00\x00\x00\x00":
             # Success!
             self.authenticated()
         else:
