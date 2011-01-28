@@ -10,12 +10,9 @@ policy = """
 
 class PolicyProtocol(Protocol):
 
-    def __init__(self):
-        print "Hi mom!"
-
     def connectionMade(self):
         self.transport.write(policy)
-        self.loseConnection()
+        self.transport.loseConnection()
 
 class PolicyFactory(Factory):
     protocol = PolicyProtocol
