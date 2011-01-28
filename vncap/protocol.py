@@ -197,10 +197,12 @@ def start_proxying(result):
     success, server = server_result
     if not success:
         return Failure("Couldn't connect on server side!")
-    client.dataReceived = server.transport.write
+
     server.dataReceived = client.transport.write
-    client.transport.resumeProducing()
+    client.dataReceived = server.transport.write
+
     server.transport.resumeProducing()
+    client.transport.resumeProducing()
     log.msg("Proxying started!")
 
 def prepare_proxy(client, server):
