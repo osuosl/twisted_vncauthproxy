@@ -9,7 +9,10 @@ from twisted.python import log
 from twisted.python.failure import Failure
 
 from d3des import generate_response
-from rfb import check_password
+
+def check_password(challenge, response, password):
+    password = password.ljust(8, "\x00")[:8]
+    return generate_response(password, challenge) == response
 
 (
     STATE_VERSION,
@@ -51,12 +54,14 @@ class VNCServerAuthenticator(VNCAuthenticator):
     """
 
     def connectionMade(self):
+        log.msg("trace connectionMade")
         self.transport.write(self.VERSION)
 
     def getInitialState(self):
         return self.check_version, 12
 
     def check_version(self, version):
+        log.msg("trace check_version")
         if version == self.VERSION:
             log.msg("Checked version!")
             self.transport.write("\x02\x01\x02")
@@ -69,7 +74,7 @@ class VNCServerAuthenticator(VNCAuthenticator):
         """
         Choose the security type that the client wants.
         """
-        log.msg("trace pick_security_types")
+        log.msg("trace select_security_type")
 
         security_type = ord(security_type)
 
@@ -96,6 +101,7 @@ class VNCServerAuthenticator(VNCAuthenticator):
             self.transport.loseConnection()
 
     def authenticated(self):
+        log.msg("trace authenticated")
         self.transport.write("\x00\x00\x00\x00")
         VNCAuthenticator.authenticated(self)
 
@@ -125,6 +131,7 @@ class VNCClientAuthenticator(VNCAuthenticator):
             self.transport.loseConnection()
 
     def count_security_types(self, data):
+        log.msg("trace count_security_types")
         count = ord(data)
 
         if not count:
@@ -138,6 +145,7 @@ class VNCClientAuthenticator(VNCAuthenticator):
         Ascertain whether the server supports any security types we might
         want.
         """
+        log.msg("trace pick_security_type")
 
         security_types = set(ord(i) for i in data)
         log.msg("Available authentication methods: %s"
@@ -180,6 +188,7 @@ class VNCClientAuthenticatorFactory(Factory):
         self.password = password
 
     def buildProtocol(self, addr):
+        log.msg("trace buildProtocol")
         p = self.protocol(self.password)
         p.factory = self
         return p
