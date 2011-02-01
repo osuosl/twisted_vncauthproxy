@@ -33,10 +33,7 @@ class TestControlProtocolUsage(unittest.TestCase):
 
     def test_bad_data(self):
         l = [
-            "herp:derp",
-            "herp:derp:lerp:merp",
-            ":::::",
-            "12:asdf:13",
+            """{"hurp": "derp"}""",
         ]
         for line in l:
             self.cp.lineReceived(line)
@@ -45,12 +42,25 @@ class TestControlProtocolUsage(unittest.TestCase):
             self.cp.transport.buf = ""
 
     def test_privileged_port(self):
-        self.cp.lineReceived("1:localhost:1:password")
+        self.cp.lineReceived("""{
+            "sport": 1,
+            "dport": 11048,
+            "daddr": "localhost",
+            "password": "fhqwhgads"
+        }""")
         self.assertTrue(self.cp.transport.buf.startswith("FAILED"))
 
     def test_forwarding(self):
-        self.cp.lineReceived("55555:localhost:55555:password")
-        self.assertTrue(self.cp.transport.buf.startswith("OK"))
+        self.cp.lineReceived("""{
+            "sport": 55555,
+            "dport": 11048,
+            "daddr": "localhost",
+            "password": "fhqwhgads"
+        }""")
+        self.assertTrue(self.cp.transport.buf.startswith("55555"))
 
-        # Clean up...
+        # Clean up one single delayed call.
+        delayed = reactor.getDelayedCalls()
+        self.assertEqual(len(delayed), 1)
+        delayed[0].cancel()
         reactor.removeAll()

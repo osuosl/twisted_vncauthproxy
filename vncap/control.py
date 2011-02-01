@@ -27,7 +27,7 @@ class ControlProtocol(LineReceiver):
             reactor.listenTCP(sport, factory)
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
-        except ValueError:
+        except (KeyError, ValueError):
             log.err("Couldn't handle line %s" % line)
             self.sendLine("FAILED")
         except CannotListenError:
