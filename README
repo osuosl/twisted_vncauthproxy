@@ -10,3 +10,12 @@ $ sudo twistd -ny proxy.tac
 
 There's no way to configure that at the moment. We'll have a config file as
 soon as we figure out what should go in it.
+
+Requirements:
+
+ * Twisted Core
+ * Twisted Web
+
+Twisted 9.x is probably the oldest version of Twisted that will work. If you
+have problems with this version or succeed in getting it working with Twisted
+8.x, let me know.
