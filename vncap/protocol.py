@@ -209,6 +209,13 @@ def start_proxying(result):
 
     server.dataReceived = client.transport.write
     client.dataReceived = server.transport.write
+    # Replay last bits of stuff in the pipe, if there's anything left.
+    data = server._sful_data[1].read()
+    if data:
+        client.transport.write(data)
+    data = client._sful_data[1].read()
+    if data:
+        server.transport.write(data)
 
     server.transport.resumeProducing()
     client.transport.resumeProducing()
