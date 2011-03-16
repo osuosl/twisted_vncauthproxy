@@ -24,7 +24,14 @@ class ControlProtocol(LineReceiver):
 
             #factory = VNCProxy(host, dport, password)
             factory = VNCSite(host, dport, password)
-            reactor.listenTCP(sport, factory)
+            listening = reactor.listenTCP(sport, factory)
+
+            # Set up our timeout.
+            def timeout():
+                log.msg("Timed out connection on port %d" % sport)
+                listening.stopListening()
+            reactor.callLater(30, timeout)
+
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
         except (KeyError, ValueError):
