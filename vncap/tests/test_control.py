@@ -18,6 +18,8 @@ class DummyTransport(object):
 class DummyControlFactory(object):
 
     def allocate_port(self, port=None):
+        if port:
+            return port
         return 55555
 
     def free_port(self, port):
@@ -82,6 +84,8 @@ class TestControlProtocolUsage(unittest.TestCase):
             self.cp.transport.buf = ""
 
     def test_privileged_port(self):
+        self.cp.factory = DummyControlFactory()
+
         self.cp.lineReceived("""{
             "sport": 1,
             "dport": 11048,
