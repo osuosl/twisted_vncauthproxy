@@ -1,5 +1,4 @@
 from json import loads
-from random import choice
 
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
@@ -64,7 +63,7 @@ class ControlFactory(ServerFactory):
         """
 
         if port not in self.pool:
-            port = choice(self.pool)
+            port = self.pool.pop()
 
         self.pool.discard(port)
         return port

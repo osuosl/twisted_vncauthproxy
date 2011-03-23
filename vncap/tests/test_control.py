@@ -14,6 +14,37 @@ class DummyTransport(object):
     def loseConnection(self):
         pass
 
+class TestControlFactory(unittest.TestCase):
+
+    def setUp(self):
+        self.cf = ControlFactory()
+
+    def test_trivial(self):
+        pass
+
+    def test_allocate_port(self):
+        port = self.cf.allocate_port()
+        self.assertTrue(1024 < port < 65536)
+
+    def test_allocate_port_default(self):
+        port = self.cf.allocate_port(4242)
+        self.assertEqual(port, 4242)
+
+    def test_allocate_port_default_privileged(self):
+        port = self.cf.allocate_port(42)
+        self.assertNotEqual(port, 42)
+
+    def test_free_port(self):
+        port = 42
+        self.cf.free_port(42)
+        self.assertTrue(42 in self.cf.pool)
+
+    def test_allocate_and_free_port(self):
+        port = self.cf.allocate_port()
+        self.assertTrue(port not in self.cf.pool)
+        self.cf.free_port(port)
+        self.assertTrue(port in self.cf.pool)
+
 class TestControlProtocol(unittest.TestCase):
 
     def setUp(self):
