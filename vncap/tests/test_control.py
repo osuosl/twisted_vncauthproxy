@@ -1,4 +1,5 @@
 from twisted.internet import reactor
+from twisted.internet.defer import Deferred
 from twisted.trial import unittest
 
 from vncap.control import ControlProtocol, ControlFactory
@@ -12,6 +13,14 @@ class DummyTransport(object):
         self.buf += data
 
     def loseConnection(self):
+        pass
+
+class DummyControlFactory(object):
+
+    def allocate_port(self, port=None):
+        return 55555
+
+    def free_port(self, port):
         pass
 
 class TestControlFactory(unittest.TestCase):
@@ -82,6 +91,12 @@ class TestControlProtocolUsage(unittest.TestCase):
         self.assertTrue(self.cp.transport.buf.startswith("FAILED"))
 
     def test_forwarding(self):
+        # Set up our test. We want to make sure that no actual ports are
+        # opened, so let's patch out listenTCP().
+        self.patch(reactor, "listenTCP",
+            lambda port, factory, **kwargs: Deferred())
+        self.cp.factory = DummyControlFactory()
+
         self.cp.lineReceived("""{
             "sport": 55555,
             "dport": 11048,
@@ -90,8 +105,7 @@ class TestControlProtocolUsage(unittest.TestCase):
         }""")
         self.assertTrue(self.cp.transport.buf.startswith("55555"))
 
-        # Clean up one single delayed call.
+        # Clean up one single delayed call: The timeout.
         delayed = reactor.getDelayedCalls()
         self.assertEqual(len(delayed), 1)
         delayed[0].cancel()
-        reactor.removeAll()
