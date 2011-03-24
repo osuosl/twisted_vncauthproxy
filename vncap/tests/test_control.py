@@ -39,7 +39,8 @@ class TestControlFactory(unittest.TestCase):
 
     def test_allocate_port_default(self):
         port = self.cf.allocate_port(4242)
-        self.assertEqual(port, 4242)
+        self.assertNotEqual(port, 4242)
+        self.assertTrue(5800 <= port < 5900)
 
     def test_allocate_port_default_privileged(self):
         port = self.cf.allocate_port(42)

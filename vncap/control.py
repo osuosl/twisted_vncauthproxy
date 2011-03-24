@@ -9,6 +9,12 @@ from twisted.python import log
 from vncap.factory import VNCProxy
 from vncap.site import VNCSite
 
+# Allowed proxy port ranges.
+# By default, this is the VNC port range.
+# To use a different port range, simply change the following two lines.
+FIRST_PORT = 5800
+LAST_PORT = 5900
+
 class ControlProtocol(LineReceiver):
 
     def lineReceived(self, line):
@@ -51,7 +57,7 @@ class ControlFactory(ServerFactory):
     protocol = ControlProtocol
 
     def __init__(self):
-        self.pool = set(range(1025, 65536))
+        self.pool = set(range(FIRST_PORT, LAST_PORT))
 
     def allocate_port(self, port=None):
         """
