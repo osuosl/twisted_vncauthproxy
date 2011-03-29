@@ -8,7 +8,7 @@ from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 from twisted.python.failure import Failure
 
-from d3des import generate_response
+from vncap.d3des import generate_response
 
 def check_password(challenge, response, password):
     password = password.ljust(8, "\x00")[:8]
