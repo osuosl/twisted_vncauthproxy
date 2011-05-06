@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(
     name="VNCAuthProxy",
     version="0.1",
-    packages=["vncap"],
+    packages=find_packages(),
     install_requires=[
         "Twisted>=10.2",
     ],
