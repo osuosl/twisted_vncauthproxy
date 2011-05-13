@@ -10,7 +10,7 @@ setup(
         "vncap",
     ],
     install_requires=[
-        "Twisted>=10.2",
+        "Twisted>=10.2.0",
     ],
     author="Corbin Simpson",
     author_email="simpsoco@osuosl.org",
