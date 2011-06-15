@@ -8,7 +8,7 @@ from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 from twisted.python.failure import Failure
 
-from d3des import generate_response
+from vncap.d3des import generate_response
 
 def check_password(challenge, response, password):
     password = password.ljust(8, "\x00")[:8]
@@ -200,12 +200,28 @@ def start_proxying(result):
 
     log.msg("Starting proxy")
     client_result, server_result = result
+    success = True
+    client_success, client = client_result
+    server_success, server = server_result
+
+    if not client_success:
+        success = False
+        log.err("Had issues on client side...")
+        log.err(client)
+
+    if not server_success:
+        success = False
+        log.err("Had issues on server side...")
+        log.err(server)
+
     success, client = client_result
     if not success:
-        return Failure("Couldn't connect on client side!")
-    success, server = server_result
-    if not success:
-        return Failure("Couldn't connect on server side!")
+        log.err("Had issues connecting, disconnecting both sides")
+        if not isinstance(client, Failure):
+            client.transport.loseConnection()
+        if not isinstance(server, Failure):
+            server.transport.loseConnection()
+        return
 
     server.dataReceived = client.transport.write
     client.dataReceived = server.transport.write

@@ -3,19 +3,28 @@ This is woefully incomplete.
 If you are using Fx, you need to use a WebSocket Flash emulator and thus you
 will need to serve a Flash policy. A simple policy server is shipped in this
 package, try:
-$ sudo twistd -ny policy.tac
+$ sudo twistd -n flashpolicy
 
-To start the server, running in WebSocket mode on port 8888, do:
-$ sudo twistd -ny proxy.tac
+To start the server, try:
+$ twistd -n vncap
 
-There's no way to configure that at the moment. We'll have a config file as
-soon as we figure out what should go in it.
+By default, the daemon runs in WebSocket mode on TCP port 8888, bound to
+localhost. It can be customized to target any endpoint; here are some
+examples.
+
+Running on TCP port 8000, bound to localhost:
+$ twistd -n vncap -c tcp:8000:interface=localhost
+
+Running on a local UNIX socket:
+$ twistd -n vncap -c unix:/tmp/vncap.sock
 
 Requirements:
 
- * Twisted Core
- * Twisted Web
+ * If your distribution has a monolithic Twisted:
 
-Twisted 9.x is probably the oldest version of Twisted that will work. If you
-have problems with this version or succeed in getting it working with Twisted
-8.x, let me know.
+   * Twisted 10.x or newer
+
+ * If your distribution has a modular Twisted:
+
+   * Twisted Core 10.x or newer
+   * Twisted Web 10.x or newer

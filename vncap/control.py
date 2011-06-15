@@ -9,6 +9,12 @@ from twisted.python import log
 from vncap.factory import VNCProxy
 from vncap.site import VNCSite
 
+# Allowed proxy port ranges.
+# By default, this is the VNC port range.
+# To use a different port range, simply change the following two lines.
+FIRST_PORT = 5800
+LAST_PORT = 5900
+
 class ControlProtocol(LineReceiver):
 
     def lineReceived(self, line):
@@ -19,18 +25,29 @@ class ControlProtocol(LineReceiver):
             host = d["daddr"]
             dport = d["dport"]
             password = d["password"]
-            if not sport:
-                sport = self.factory.assign_port()
+
+            # Allocate the source port.
+            sport = self.factory.allocate_port(sport)
 
             #factory = VNCProxy(host, dport, password)
             factory = VNCSite(host, dport, password)
-            reactor.listenTCP(sport, factory)
+            listening = reactor.listenTCP(sport, factory)
+
+            # Set up our timeout.
+            def timeout():
+                log.msg("Timed out connection on port %d" % sport)
+                listening.stopListening()
+                self.factory.free_port(sport)
+            reactor.callLater(30, timeout)
+
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
         except (KeyError, ValueError):
             log.err("Couldn't handle line %s" % line)
             self.sendLine("FAILED")
         except CannotListenError:
+            # Couldn't bind the port. Don't free it, as it's probably not
+            # available to us.
             log.err("Couldn't bind port %d" % sport)
             self.sendLine("FAILED")
 
@@ -40,10 +57,26 @@ class ControlFactory(ServerFactory):
     protocol = ControlProtocol
 
     def __init__(self):
-        self.pool = set()
-        self.pool_counter = 12000
+        self.pool = set(range(FIRST_PORT, LAST_PORT))
 
-    def assign_port(self):
-        # XXX hax
-        self.pool_counter += 1
-        return self.pool_counter
+    def allocate_port(self, port=None):
+        """
+        Allocate a port.
+
+        If a specific port is requested, try to allocate that port. A random
+        port will be selected if it is not available. A random port will also
+        be selected if no specific port is requested.
+        """
+
+        if port not in self.pool:
+            port = self.pool.pop()
+
+        self.pool.discard(port)
+        return port
+
+    def free_port(self, port):
+        """
+        Free a port for further allocations.
+        """
+
+        self.pool.add(port)
