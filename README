@@ -20,11 +20,7 @@ $ twistd -n vncap -c unix:/tmp/vncap.sock
 
 Requirements:
 
- * If your distribution has a monolithic Twisted:
+ * Twisted 10.2 or newer
 
-   * Twisted 10.x or newer
-
- * If your distribution has a modular Twisted:
-
-   * Twisted Core 10.x or newer
-   * Twisted Web 10.x or newer
+If your distribution insists on splitting Twisted into multiple packages, you
+will also need the Twisted Web package, usually called python-twisted-web.
