@@ -54,27 +54,31 @@ class VNCServerAuthenticator(VNCAuthenticator):
     """
 
     def connectionMade(self):
-        log.msg("trace connectionMade")
+        log.msg("Received incoming connection")
         self.transport.write(self.VERSION)
 
     def getInitialState(self):
         return self.check_version, 12
 
     def check_version(self, version):
-        log.msg("trace check_version")
+        """
+        Determine the client's version and decide whether to continue the
+        handshake.
+        """
+
         if version == self.VERSION:
-            log.msg("Checked version!")
+            log.msg("Client version %s is valid" % version.strip())
+            # Hardcoded: 2 security types: None and VNC Auth.
             self.transport.write("\x02\x01\x02")
             return self.select_security_type, 1
         else:
-            log.err("Can't handle VNC version %s" % version)
+            log.err("Can't handle VNC version %r" % version)
             self.transport.loseConnection()
 
     def select_security_type(self, security_type):
         """
         Choose the security type that the client wants.
         """
-        log.msg("trace select_security_type")
 
         security_type = ord(security_type)
 
@@ -101,7 +105,8 @@ class VNCServerAuthenticator(VNCAuthenticator):
             self.transport.loseConnection()
 
     def authenticated(self):
-        log.msg("trace authenticated")
+        log.msg("Successfully authenticated a client!")
+        # Send a u32 0, for success.
         self.transport.write("\x00\x00\x00\x00")
         VNCAuthenticator.authenticated(self)
 
@@ -113,25 +118,19 @@ class VNCClientAuthenticator(VNCAuthenticator):
     protocols.
     """
 
-    def __init__(self, *args, **kwargs):
-        VNCAuthenticator.__init__(self, *args, **kwargs)
-        log.msg("Init'd client")
-
     def getInitialState(self):
-        log.msg("Client initial state")
         return self.check_version, 12
 
     def check_version(self, version):
         if version == self.VERSION:
-            log.msg("Checked version!")
+            log.msg("Server version %s is valid" % version.strip())
             self.transport.write(self.VERSION)
             return self.count_security_types, 1
         else:
-            log.err("Can't handle VNC version %s" % version)
+            log.err("Can't handle VNC version %r" % version)
             self.transport.loseConnection()
 
     def count_security_types(self, data):
-        log.msg("trace count_security_types")
         count = ord(data)
 
         if not count:
@@ -145,7 +144,6 @@ class VNCClientAuthenticator(VNCAuthenticator):
         Ascertain whether the server supports any security types we might
         want.
         """
-        log.msg("trace pick_security_type")
 
         security_types = set(ord(i) for i in data)
         log.msg("Available authentication methods: %s"
@@ -173,9 +171,9 @@ class VNCClientAuthenticator(VNCAuthenticator):
         return self.security_result, 4
 
     def security_result(self, data):
-        log.msg("trace authenticated")
         if data == "\x00\x00\x00\x00":
             # Success!
+            log.msg("Successfully authenticated to the server!")
             self.authenticated()
         else:
             log.err("Failed security result!")
@@ -188,7 +186,6 @@ class VNCClientAuthenticatorFactory(Factory):
         self.password = password
 
     def buildProtocol(self, addr):
-        log.msg("trace buildProtocol")
         p = self.protocol(self.password)
         p.factory = self
         return p
