@@ -197,8 +197,17 @@ def start_proxying(results):
     log.msg("Starting proxy")
     client, server = results
 
+    # Rewrite the dataReceived and connectionLost hooks to correctly handle
+    # their peers.
+    def cb(peer):
+        if peer.transport:
+            peer.transport.loseConnection()
+
     server.dataReceived = client.transport.write
+    server.connectionLost = lambda reason=None: cb(client)
     client.dataReceived = server.transport.write
+    client.connectionLost = lambda reason=None: cb(server)
+
     # Replay last bits of stuff in the pipe, if there's anything left.
     data = server._sful_data[1].read()
     if data:
