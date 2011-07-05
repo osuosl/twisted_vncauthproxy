@@ -1,12 +1,11 @@
 from os import urandom
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, DeferredList
+from twisted.internet.defer import Deferred, gatherResults
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.protocol import Factory
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
-from twisted.python.failure import Failure
 
 from vncap.d3des import generate_response
 
@@ -190,35 +189,13 @@ class VNCClientAuthenticatorFactory(Factory):
         p.factory = self
         return p
 
-def start_proxying(result):
+def start_proxying(results):
     """
     Callback to start proxies.
     """
 
     log.msg("Starting proxy")
-    client_result, server_result = result
-    success = True
-    client_success, client = client_result
-    server_success, server = server_result
-
-    if not client_success:
-        success = False
-        log.err("Had issues on client side...")
-        log.err(client)
-
-    if not server_success:
-        success = False
-        log.err("Had issues on server side...")
-        log.err(server)
-
-    success, client = client_result
-    if not success:
-        log.err("Had issues connecting, disconnecting both sides")
-        if not isinstance(client, Failure):
-            client.transport.loseConnection()
-        if not isinstance(server, Failure):
-            server.transport.loseConnection()
-        return
+    client, server = results
 
     server.dataReceived = client.transport.write
     client.dataReceived = server.transport.write
@@ -241,8 +218,14 @@ def prepare_proxy(client, server):
 
     log.msg("Preparing proxies for client %s and server %s"
         % (client, server))
-    dl = DeferredList([client.authentication_d, server.authentication_d])
-    dl.addCallback(start_proxying)
+    d = gatherResults([client.authentication_d, server.authentication_d])
+    d.addCallback(start_proxying)
+
+    @d.addErrback
+    def cancel_proxy(failure):
+        log.msg("Things went wrong, cancelling proxy")
+        client.transport.loseConnection()
+        server.transport.loseConnection()
 
 def make_server_and_client(host, port, password):
     """
@@ -255,8 +238,13 @@ def make_server_and_client(host, port, password):
 
     server = VNCServerAuthenticator(password)
 
-    endpoint = TCP4ClientEndpoint(reactor, host, port)
+    endpoint = TCP4ClientEndpoint(reactor, host, port, timeout=30)
     d = endpoint.connect(VNCClientAuthenticatorFactory(password))
     d.addCallback(prepare_proxy, server)
+    @d.addErrback
+    def cancel_proxy(failure):
+        log.err()
+        log.msg("Couldn't connect to server, cancelling proxy")
+        server.transport.loseConnection()
 
     return server
