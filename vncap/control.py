@@ -43,12 +43,12 @@ class ControlProtocol(LineReceiver):
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
         except (KeyError, ValueError):
-            log.err("Couldn't handle line %s" % line)
+            log.msg("Couldn't handle line %s" % line)
             self.sendLine("FAILED")
         except CannotListenError:
             # Couldn't bind the port. Don't free it, as it's probably not
             # available to us.
-            log.err("Couldn't bind port %d" % sport)
+            log.msg("Couldn't bind port %d" % sport)
             self.sendLine("FAILED")
 
         self.transport.loseConnection()
