@@ -8,6 +8,7 @@ from twisted.python import log
 
 from vncap.factory import VNCProxy
 from vncap.site import VNCSite
+from vncap.websocket_new import WebSocketFactory
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.
@@ -29,8 +30,8 @@ class ControlProtocol(LineReceiver):
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
-            #factory = VNCProxy(host, dport, password)
-            factory = VNCSite(host, dport, password)
+            factory = VNCProxy(host, dport, password)
+            factory = WebSocketFactory(factory)
             listening = reactor.listenTCP(sport, factory)
 
             # Set up our timeout.
