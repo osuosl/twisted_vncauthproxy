@@ -7,7 +7,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 
 from vncap.factory import VNCProxy
-from vncap.websocket_new import WebSocketFactory
+from vncap.websocket import WebSocketFactory
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.
