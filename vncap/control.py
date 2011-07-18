@@ -3,6 +3,7 @@ from json import loads
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from twisted.internet.protocol import ServerFactory
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 
@@ -21,17 +22,28 @@ class ControlProtocol(LineReceiver):
         log.msg("Received line %s" % line)
         try:
             d = loads(line)
-            sport = d["sport"]
+            # Required names.
             host = d["daddr"]
             dport = d["dport"]
             password = d["password"]
+            # Optional names.
+            sport = d.get("sport")
+            ws = d.get("ws", False)
+            tls = d.get("tls", False)
 
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
             factory = VNCProxy(host, dport, password)
-            factory = WebSocketFactory(factory)
-            listening = reactor.listenTCP(sport, factory)
+
+            if ws:
+                factory = WebSocketFactory(factory)
+            if tls:
+                context = DefaultOpenSSLContextFactory("keys/vncap.key",
+                                                       "keys/vncap.crt")
+                listening = reactor.listenSSL(sport, factory, context)
+            else:
+                listening = reactor.listenTCP(sport, factory)
 
             # Set up our timeout.
             def timeout():
