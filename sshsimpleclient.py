@@ -4,6 +4,7 @@ from twisted.conch.ssh.channel import SSHChannel
 from twisted.conch.ssh.common import NS
 from twisted.conch.ssh.connection import SSHConnection
 from twisted.conch.ssh.keys import Key
+from twisted.conch.ssh.session import packRequest_pty_req
 from twisted.conch.ssh.transport import SSHClientTransport
 from twisted.conch.ssh.userauth import SSHUserAuthClient
 from twisted.internet import defer, protocol, reactor
@@ -25,7 +26,7 @@ class KeyOnlyAuth(SSHUserAuthClient):
         if not os.path.exists(key_path) or self.lastPublicKey:
             # the file doesn't exist, or we've tried a public key
             return
-        return Key.fromFile(filename=key_path+'.pub')
+        return Key.fromFile(key_path + ".pub")
 
     def getPrivateKey(self):
         return defer.succeed(Key.fromFile(key_path))
@@ -39,11 +40,17 @@ class SocatChannel(SSHChannel):
         print 'echo failed', reason
 
     def channelOpen(self, ignoredData):
+        req = packRequest_pty_req("xterm", (24, 80, 0, 0), "")
+        self.conn.sendRequest(self, "pty-req", req)
+
         d = self.conn.sendRequest(self, 'exec', NS(" ".join(command)),
                                   wantReply=1)
         @d.addCallback
         def cb(chaff):
+            class FakePeer(object):
+                transport = self
             proxy = Proxy()
+            proxy.setPeer(FakePeer())
             self.peer = proxy
             StandardIO(proxy)
 
