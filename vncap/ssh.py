@@ -28,18 +28,15 @@ checker = InMemoryUsernamePasswordDatabaseDontUse()
 checker.addUser("simpson", "hurp")
 
 def attach_protocol_to_channel(protocol, channel):
+    # These are from
+    # http://as.ynchrono.us/2011/08/twisted-conch-in-60-seconds-protocols.html
     transport = SSHSessionProcessProtocol(channel)
     protocol.makeConnection(transport)
     transport.makeConnection(wrapProtocol(protocol))
     channel.client = transport
 
-class Noisy(Proxy):
-
-    def dataReceived(self, data):
-        log.msg("Received %r" % data)
-        self.peer.transport.write(data)
-
-Proxy = Noisy
+    # And this one's from me :3
+    channel.dataReceived = protocol.dataReceived
 
 class ChannelBase(SSHChannel):
 
@@ -69,6 +66,10 @@ class Session(ChannelBase):
 
         return True
 
+    def closed(self):
+        self.loseConnection()
+        self.proxy.transport.loseConnection()
+
 class SocatChannel(ChannelBase):
 
     def openFailed(self, reason):
@@ -88,8 +89,9 @@ class SocatChannel(ChannelBase):
             other.setPeer(self.proxy)
 
     def closed(self):
-        print "Connection closed"
         self.loseConnection()
+        self.proxy.transport.loseConnection()
+        self.conn.client.loseConnection()
 
 class Realm(object):
     implements(IRealm)
