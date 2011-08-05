@@ -41,18 +41,23 @@ class Noisy(Proxy):
 
 Proxy = Noisy
 
-class Session(SSHChannel):
+class ChannelBase(SSHChannel):
 
     name = "session"
+
+    def __init__(self, *args, **kwargs):
+        SSHChannel.__init__(self, *args, **kwargs)
+
+        self.proxy = Proxy()
+        attach_protocol_to_channel(self.proxy, self)
+
+class Session(ChannelBase):
 
     def request_pty_req(self, data):
         self.term, self.size, modes = parseRequest_pty_req(data)
         return True
 
     def request_shell(self, data):
-        self.proxy = Proxy()
-        attach_protocol_to_channel(self.proxy, self)
-
         d = cc.connectTCP("localhost", 9000)
         @d.addCallback
         def cb(protocol):
@@ -64,15 +69,7 @@ class Session(SSHChannel):
 
         return True
 
-class SocatChannel(SSHChannel):
-
-    name = 'session'
-
-    def __init__(self, *args, **kwargs):
-        SSHChannel.__init__(self, *args, **kwargs)
-
-        self.proxy = Proxy()
-        attach_protocol_to_channel(self.proxy, self)
+class SocatChannel(ChannelBase):
 
     def openFailed(self, reason):
         print 'echo failed', reason
