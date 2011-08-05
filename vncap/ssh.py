@@ -1,15 +1,57 @@
 import os
+import sys
+import tty
 
+from twisted.python import log
+log.startLogging(sys.stdout)
+
+from twisted.conch.avatar import ConchUser
+from twisted.conch.interfaces import IConchUser
 from twisted.conch.ssh.channel import SSHChannel
 from twisted.conch.ssh.common import NS
 from twisted.conch.ssh.connection import SSHConnection
+from twisted.conch.ssh.factory import SSHFactory
 from twisted.conch.ssh.keys import Key
 from twisted.conch.ssh.session import packRequest_pty_req
 from twisted.conch.ssh.transport import SSHClientTransport
 from twisted.conch.ssh.userauth import SSHUserAuthClient
-from twisted.internet import defer, protocol, reactor
+from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
+from twisted.cred.portal import IRealm, Portal
+from twisted.internet import reactor
+from twisted.internet.defer import succeed
+from twisted.internet.protocol import ClientCreator
 from twisted.internet.stdio import StandardIO
 from twisted.protocols.portforward import Proxy
+from zope.interface import implements
+
+checker = InMemoryUsernamePasswordDatabaseDontUse()
+checker.addUser("simpson", "hurp")
+
+class Session(SSHChannel):
+    name = "session"
+
+    def request_shell(self, data):
+        d = cc.connectTCP("localhost", 9000)
+        @d.addCallback
+        def cb(protocol):
+            pass
+        @d.addErrback
+        def eb(failure):
+            log.err(failure)
+            self.loseConnection()
+
+        return True
+
+class Realm(object):
+    implements(IRealm)
+
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        if IConchUser not in interfaces:
+            return None
+
+        user = ConchUser()
+        user.channelLookup["session"] = Session
+        return IConchUser, user, lambda: None
 
 USER = 'root'  # replace this with a valid username
 HOST = 'localhost' # and a valid host
@@ -29,7 +71,7 @@ class KeyOnlyAuth(SSHUserAuthClient):
         return Key.fromFile(key_path + ".pub")
 
     def getPrivateKey(self):
-        return defer.succeed(Key.fromFile(key_path))
+        return succeed(Key.fromFile(key_path))
 
 class SocatChannel(SSHChannel):
 
@@ -53,6 +95,8 @@ class SocatChannel(SSHChannel):
             proxy.setPeer(FakePeer())
             self.peer = proxy
             StandardIO(proxy)
+            tty.setraw(0)
+            tty.setraw(1)
 
     def dataReceived(self, data):
         if self.peer:
@@ -61,6 +105,8 @@ class SocatChannel(SSHChannel):
     def closed(self):
         print "Connection closed"
         self.loseConnection()
+        tty.setcbreak(0)
+        tty.setcbreak(1)
         reactor.stop()
 
 class SocatConnection(SSHConnection):
@@ -78,7 +124,7 @@ class CommandTransport(SSHClientTransport):
 
     def verifyHostKey(self, hostKey, fingerprint):
         print 'host key fingerprint: %s' % fingerprint
-        return defer.succeed(1)
+        return succeed(1)
 
     def connectionSecure(self):
         self.requestService(KeyOnlyAuth(USER, SocatConnection()))
@@ -86,5 +132,18 @@ class CommandTransport(SSHClientTransport):
 command = ['/usr/bin/socat', 'STDIO,raw,echo=0,escape=0x1d',
            'UNIX-CONNECT:/var/run/ganeti/kvm-hypervisor/ctrl/instance1.example.org.serial']
 
-protocol.ClientCreator(reactor, CommandTransport, command).connectTCP(HOST, 9000)
+cc = ClientCreator(reactor, CommandTransport, command)
+
+private = Key.fromFile("keys/id_rsa_vncap")
+public = Key.fromFile("keys/id_rsa_vncap.pub")
+
+factory = SSHFactory()
+
+factory.privateKeys = {"ssh-rsa": private}
+factory.publicKeys = {"ssh-rsa": public}
+
+factory.portal = Portal(Realm())
+factory.portal.registerChecker(checker)
+
+reactor.listenTCP(2022, factory)
 reactor.run()
