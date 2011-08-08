@@ -148,8 +148,29 @@ from twisted.conch.telnet import (TelnetTransport,
 
 class TelnetProxy(TelnetProtocol):
 
+    term = "xterm"
+    size = (24, 80, 0, 0)
+
+    def __init__(self):
+        self.proxy = Proxy()
+
+    def connectionMade(self):
+        self.proxy.transport = self.transport
+
+        d = cc.connectTCP("localhost", 9000)
+        @d.addCallback
+        def cb(protocol):
+            protocol.client = self
+        @d.addErrback
+        def eb(failure):
+            log.err(failure)
+            self.transport.loseConnection()
+
     def dataReceived(self, data):
-        self.transport.write(data)
+        self.proxy.dataReceived(data)
+
+    def loseConnection(self):
+        self.transport.loseConnection()
 
 class TelnetFactory(Factory):
 
