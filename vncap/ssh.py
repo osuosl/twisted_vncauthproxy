@@ -62,7 +62,7 @@ class Session(ChannelBase):
         @d.addErrback
         def eb(failure):
             log.err(failure)
-            self.loseConnection()
+            self.closed()
 
         return True
 
