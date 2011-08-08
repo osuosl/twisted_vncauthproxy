@@ -16,6 +16,7 @@ from twisted.conch.ssh.session import (SSHSessionProcessProtocol,
                                        parseRequest_pty_req)
 from twisted.conch.ssh.transport import SSHClientTransport
 from twisted.conch.ssh.userauth import SSHUserAuthClient
+from twisted.conch.telnet import ITelnetProtocol
 from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
 from twisted.cred.portal import IRealm, Portal
 from twisted.internet import reactor
@@ -93,17 +94,6 @@ class SocatChannel(ChannelBase):
         self.proxy.transport.loseConnection()
         self.conn.client.loseConnection()
 
-class Realm(object):
-    implements(IRealm)
-
-    def requestAvatar(self, avatarId, mind, *interfaces):
-        if IConchUser not in interfaces:
-            return None
-
-        user = ConchUser()
-        user.channelLookup["session"] = Session
-        return IConchUser, user, lambda: None
-
 USER = 'root'  # replace this with a valid username
 HOST = 'localhost' # and a valid host
 
@@ -151,6 +141,37 @@ class CommandTransport(SSHClientTransport):
         self.conn = SocatConnection(self.client)
         self.requestService(KeyOnlyAuth(USER, self.conn))
 
+from twisted.internet.protocol import Factory
+from twisted.conch.telnet import (TelnetTransport,
+                                  AuthenticatingTelnetProtocol,
+                                  TelnetProtocol)
+
+class TelnetProxy(TelnetProtocol):
+
+    def dataReceived(self, data):
+        self.transport.write(data)
+
+class TelnetFactory(Factory):
+
+    protocol = lambda none: TelnetTransport(AuthenticatingTelnetProtocol, portal)
+
+class Realm(object):
+    implements(IRealm)
+
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        if IConchUser in interfaces:
+            user = ConchUser()
+            user.channelLookup["session"] = Session
+            return IConchUser, user, lambda: None
+
+        if ITelnetProtocol in interfaces:
+            return ITelnetProtocol, TelnetProxy(), lambda: None
+
+        return None
+
+portal = Portal(Realm())
+portal.registerChecker(checker)
+
 command = ['/usr/bin/socat', 'STDIO,raw,echo=0,escape=0x1d',
            'UNIX-CONNECT:/var/run/ganeti/kvm-hypervisor/ctrl/instance1.example.org.serial']
 
@@ -164,8 +185,8 @@ factory = SSHFactory()
 factory.privateKeys = {"ssh-rsa": private}
 factory.publicKeys = {"ssh-rsa": public}
 
-factory.portal = Portal(Realm())
-factory.portal.registerChecker(checker)
+factory.portal = portal
 
 reactor.listenTCP(2022, factory)
+reactor.listenTCP(2023, TelnetFactory())
 reactor.run()
