@@ -1,9 +1,7 @@
 from os import urandom
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, gatherResults
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.protocol import Factory
+from twisted.internet.defer import Deferred
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 
