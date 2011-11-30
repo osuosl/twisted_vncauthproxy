@@ -4,26 +4,31 @@ Twisted VNC Authentication Proxy (TVAP) (VNCAP)
 
 This is woefully incomplete.
 
-If you are using Fx, you need to use a WebSocket Flash emulator and thus you
-will need to serve a Flash policy. A simple policy server is shipped in this
-package, try:
-$ sudo twistd -n flashpolicy
+If you are using Fx4 or earlier, you need to use a WebSocket Flash emulator
+and thus you will need to serve a Flash policy. A simple policy server is
+shipped in this package, try:
+
+ $ sudo twistd -n flashpolicy
 
 To start the server, try:
-$ twistd -n vncap
+
+ $ twistd -n vncap
 
 By default, the daemon runs on TCP port 8888, bound only to localhost. Here
-are some examples for customizing the control port:
+are some examples for customizing the control port.
 
 Running on TCP port 8000, bound to localhost:
-$ twistd -n vncap -c tcp:8000:interface=localhost
+
+ $ twistd -n vncap -c tcp:8000:interface=localhost
 
 Running on a local UNIX socket:
-$ twistd -n vncap -c unix:/tmp/vncap.sock
+
+ $ twistd -n vncap -c unix:/tmp/vncap.sock
 
 Requirements:
 
  * Twisted 10.2 or newer
+ * txWS 0.6 or newer
 
 If your distribution insists on splitting Twisted into multiple packages, you
 will also need the Twisted Web package, usually called python-twisted-web.
@@ -35,15 +40,15 @@ To command the proxy to open ports, a JSON snippet should be sent to the
 control port. The snippet should be a JSON dictionary, with the following
 required keys:
 
-* ``daddr``: The destination hostname for the VNC backend
-* ``dport``: The destination port for the VNC backend
-* ``password``: A password for the VNC frontend conection
+ * ``daddr``: The destination hostname for the VNC backend
+ * ``dport``: The destination port for the VNC backend
+ * ``password``: A password for the VNC frontend conection
 
 The following keys are optional:
 
-* ``sport``: The preferred source port for the VNC frontend
-* ``ws``: Whether the frontend should be wrapped for WebSockets
-* ``tls``: Whether the frontend should be wrapped with TLS for SSL/WSS
+ * ``sport``: The preferred source port for the VNC frontend
+ * ``ws``: Whether the frontend should be wrapped for WebSockets
+ * ``tls``: Whether the frontend should be wrapped with TLS for SSL/WSS
 
 If the requsted ``sport`` is not available, one will be automatically
 assigned.
@@ -54,8 +59,8 @@ TLS
 If TLS is requested, the proxy will look for SSL key and certificate
 information from hardcoded locations. The locations for the SSL files are:
 
-* ``keys/vncap.key``: SSL key
-* ``keys/vncap.crt``: SSL certificate
+ * ``keys/vncap.key``: SSL key
+ * ``keys/vncap.crt``: SSL certificate
 
 To generate simple keys, an example series of OpenSSL invocations might be::
 
