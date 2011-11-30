@@ -3,11 +3,12 @@ from json import loads
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from twisted.internet.protocol import ServerFactory
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 
 from vncap.factory import VNCProxy
-from vncap.site import VNCSite
+from txws import WebSocketFactory
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.
@@ -21,17 +22,28 @@ class ControlProtocol(LineReceiver):
         log.msg("Received line %s" % line)
         try:
             d = loads(line)
-            sport = d["sport"]
+            # Required names.
             host = d["daddr"]
             dport = d["dport"]
             password = d["password"]
+            # Optional names.
+            sport = d.get("sport")
+            ws = d.get("ws", False)
+            tls = d.get("tls", False)
 
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
-            #factory = VNCProxy(host, dport, password)
-            factory = VNCSite(host, dport, password)
-            listening = reactor.listenTCP(sport, factory)
+            factory = VNCProxy(host, dport, password)
+
+            if ws:
+                factory = WebSocketFactory(factory)
+            if tls:
+                context = DefaultOpenSSLContextFactory("keys/vncap.key",
+                                                       "keys/vncap.crt")
+                listening = reactor.listenSSL(sport, factory, context)
+            else:
+                listening = reactor.listenTCP(sport, factory)
 
             # Set up our timeout.
             def timeout():
@@ -43,12 +55,12 @@ class ControlProtocol(LineReceiver):
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
         except (KeyError, ValueError):
-            log.err("Couldn't handle line %s" % line)
+            log.msg("Couldn't handle line %s" % line)
             self.sendLine("FAILED")
         except CannotListenError:
             # Couldn't bind the port. Don't free it, as it's probably not
             # available to us.
-            log.err("Couldn't bind port %d" % sport)
+            log.msg("Couldn't bind port %d" % sport)
             self.sendLine("FAILED")
 
         self.transport.loseConnection()

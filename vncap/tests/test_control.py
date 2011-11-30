@@ -47,7 +47,6 @@ class TestControlFactory(unittest.TestCase):
         self.assertNotEqual(port, 42)
 
     def test_free_port(self):
-        port = 42
         self.cf.free_port(42)
         self.assertTrue(42 in self.cf.pool)
 

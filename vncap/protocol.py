@@ -1,12 +1,9 @@
 from os import urandom
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, DeferredList
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.protocol import Factory
+from twisted.internet.defer import Deferred
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
-from twisted.python.failure import Failure
 
 from vncap.d3des import generate_response
 
@@ -54,27 +51,31 @@ class VNCServerAuthenticator(VNCAuthenticator):
     """
 
     def connectionMade(self):
-        log.msg("trace connectionMade")
+        log.msg("Received incoming connection")
         self.transport.write(self.VERSION)
 
     def getInitialState(self):
         return self.check_version, 12
 
     def check_version(self, version):
-        log.msg("trace check_version")
+        """
+        Determine the client's version and decide whether to continue the
+        handshake.
+        """
+
         if version == self.VERSION:
-            log.msg("Checked version!")
+            log.msg("Client version %s is valid" % version.strip())
+            # Hardcoded: 2 security types: None and VNC Auth.
             self.transport.write("\x02\x01\x02")
             return self.select_security_type, 1
         else:
-            log.err("Can't handle VNC version %s" % version)
+            log.err("Can't handle VNC version %r" % version)
             self.transport.loseConnection()
 
     def select_security_type(self, security_type):
         """
         Choose the security type that the client wants.
         """
-        log.msg("trace select_security_type")
 
         security_type = ord(security_type)
 
@@ -101,7 +102,8 @@ class VNCServerAuthenticator(VNCAuthenticator):
             self.transport.loseConnection()
 
     def authenticated(self):
-        log.msg("trace authenticated")
+        log.msg("Successfully authenticated a client!")
+        # Send a u32 0, for success.
         self.transport.write("\x00\x00\x00\x00")
         VNCAuthenticator.authenticated(self)
 
@@ -113,25 +115,19 @@ class VNCClientAuthenticator(VNCAuthenticator):
     protocols.
     """
 
-    def __init__(self, *args, **kwargs):
-        VNCAuthenticator.__init__(self, *args, **kwargs)
-        log.msg("Init'd client")
-
     def getInitialState(self):
-        log.msg("Client initial state")
         return self.check_version, 12
 
     def check_version(self, version):
         if version == self.VERSION:
-            log.msg("Checked version!")
+            log.msg("Server version %s is valid" % version.strip())
             self.transport.write(self.VERSION)
             return self.count_security_types, 1
         else:
-            log.err("Can't handle VNC version %s" % version)
+            log.err("Can't handle VNC version %r" % version)
             self.transport.loseConnection()
 
     def count_security_types(self, data):
-        log.msg("trace count_security_types")
         count = ord(data)
 
         if not count:
@@ -145,7 +141,6 @@ class VNCClientAuthenticator(VNCAuthenticator):
         Ascertain whether the server supports any security types we might
         want.
         """
-        log.msg("trace pick_security_type")
 
         security_types = set(ord(i) for i in data)
         log.msg("Available authentication methods: %s"
@@ -173,93 +168,10 @@ class VNCClientAuthenticator(VNCAuthenticator):
         return self.security_result, 4
 
     def security_result(self, data):
-        log.msg("trace authenticated")
         if data == "\x00\x00\x00\x00":
             # Success!
+            log.msg("Successfully authenticated to the server!")
             self.authenticated()
         else:
             log.err("Failed security result!")
             self.transport.loseConnection()
-
-class VNCClientAuthenticatorFactory(Factory):
-    protocol = VNCClientAuthenticator
-
-    def __init__(self, password):
-        self.password = password
-
-    def buildProtocol(self, addr):
-        log.msg("trace buildProtocol")
-        p = self.protocol(self.password)
-        p.factory = self
-        return p
-
-def start_proxying(result):
-    """
-    Callback to start proxies.
-    """
-
-    log.msg("Starting proxy")
-    client_result, server_result = result
-    success = True
-    client_success, client = client_result
-    server_success, server = server_result
-
-    if not client_success:
-        success = False
-        log.err("Had issues on client side...")
-        log.err(client)
-
-    if not server_success:
-        success = False
-        log.err("Had issues on server side...")
-        log.err(server)
-
-    success, client = client_result
-    if not success:
-        log.err("Had issues connecting, disconnecting both sides")
-        if not isinstance(client, Failure):
-            client.transport.loseConnection()
-        if not isinstance(server, Failure):
-            server.transport.loseConnection()
-        return
-
-    server.dataReceived = client.transport.write
-    client.dataReceived = server.transport.write
-    # Replay last bits of stuff in the pipe, if there's anything left.
-    data = server._sful_data[1].read()
-    if data:
-        client.transport.write(data)
-    data = client._sful_data[1].read()
-    if data:
-        server.transport.write(data)
-
-    server.transport.resumeProducing()
-    client.transport.resumeProducing()
-    log.msg("Proxying started!")
-
-def prepare_proxy(client, server):
-    """
-    Set up the deferred proxy callback.
-    """
-
-    log.msg("Preparing proxies for client %s and server %s"
-        % (client, server))
-    dl = DeferredList([client.authentication_d, server.authentication_d])
-    dl.addCallback(start_proxying)
-
-def make_server_and_client(host, port, password):
-    """
-    Make a server protocol and client protocol with matching passwords, and
-    glue them together so that they will auto-proxy after authenticating.
-
-    Returns the server protocol. The client protocol is automatically started
-    and is not retrieveable.
-    """
-
-    server = VNCServerAuthenticator(password)
-
-    endpoint = TCP4ClientEndpoint(reactor, host, port)
-    d = endpoint.connect(VNCClientAuthenticatorFactory(password))
-    d.addCallback(prepare_proxy, server)
-
-    return server

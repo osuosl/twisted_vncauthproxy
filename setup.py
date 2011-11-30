@@ -4,13 +4,14 @@ from setuptools import setup
 
 setup(
     name="VNCAuthProxy",
-    version="0.9",
+    version="1.0",
     packages=[
         "twisted.plugins",
         "vncap",
     ],
     install_requires=[
         "Twisted>=10.2.0",
+        "txWS>=0.6",
     ],
     author="Corbin Simpson",
     author_email="simpsoco@osuosl.org",
