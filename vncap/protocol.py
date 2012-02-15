@@ -59,6 +59,7 @@ class VNCServerAuthenticator(VNCAuthenticator):
         self.transport.write(self.VERSION)
 
     def getInitialState(self):
+        self.verify_ip()
         return self.check_version, 12
 
     def check_version(self, version):
@@ -104,6 +105,14 @@ class VNCServerAuthenticator(VNCAuthenticator):
         else:
             log.err("Failed VNC auth!")
             self.transport.loseConnection()
+
+    def verify_ip(self):
+        if 'ip' in self.options:
+            if self.options['ip'] != self.transport.getPeer().host:
+                log.err("Failed to verify client IP")
+                self.transport.loseConnection()
+            else:
+                log.msg("Verified client IP")
 
     def authenticated(self):
         log.msg("Successfully authenticated a client!")
