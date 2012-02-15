@@ -54,6 +54,9 @@ class VNCServerAuthenticator(VNCAuthenticator):
         VNCAuthenticator.__init__(self, password)
         self.options = options
 
+        if 'password' in options:
+            self.password = options['password']
+
     def connectionMade(self):
         log.msg("Received incoming connection")
         self.transport.write(self.VERSION)
