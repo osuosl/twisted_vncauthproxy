@@ -50,6 +50,10 @@ class VNCServerAuthenticator(VNCAuthenticator):
     protocols.
     """
 
+    def __init__(self, password, options):
+        VNCAuthenticator.__init__(self, password)
+        self.options = options
+
     def connectionMade(self):
         log.msg("Received incoming connection")
         self.transport.write(self.VERSION)

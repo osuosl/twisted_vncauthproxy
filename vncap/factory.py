@@ -71,13 +71,14 @@ class VNCProxy(Factory):
 
     protocol = VNCServerAuthenticator
 
-    def __init__(self, host, port, password):
+    def __init__(self, host, port, password, client_opts):
         self.host = host
         self.port = port
         self.password = password
+        self.client_opts = client_opts
 
     def buildProtocol(self, a):
-        server = self.protocol(self.password)
+        server = self.protocol(self.password, self.client_opts)
 
         endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
                                       timeout=30)

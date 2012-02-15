@@ -30,11 +30,12 @@ class ControlProtocol(LineReceiver):
             sport = d.get("sport")
             ws = d.get("ws", False)
             tls = d.get("tls", False)
+            client_opts = d.get("client", {})
 
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
-            factory = VNCProxy(host, dport, password)
+            factory = VNCProxy(host, dport, password, client_opts)
 
             if ws:
                 factory = WebSocketFactory(factory)
