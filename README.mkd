@@ -8,22 +8,22 @@ If you are using Fx4 or earlier, you need to use a WebSocket Flash emulator
 and thus you will need to serve a Flash policy. A simple policy server is
 shipped in this package, try:
 
- $ sudo twistd -n flashpolicy
+    $ sudo twistd -n flashpolicy
 
 To start the server, try:
 
- $ twistd -n vncap
+    $ twistd -n vncap
 
 By default, the daemon runs on TCP port 8888, bound only to localhost. Here
 are some examples for customizing the control port.
 
 Running on TCP port 8000, bound to localhost:
 
- $ twistd -n vncap -c tcp:8000:interface=localhost
+    $ twistd -n vncap -c tcp:8000:interface=localhost
 
 Running on a local UNIX socket:
 
- $ twistd -n vncap -c unix:/tmp/vncap.sock
+    $ twistd -n vncap -c unix:/tmp/vncap.sock
 
 Requirements:
 
@@ -64,7 +64,7 @@ information from hardcoded locations. The locations for the SSL files are:
 
 To generate simple keys, an example series of OpenSSL invocations might be::
 
- $ openssl genrsa -out keys/vncap.key 1024
- $ openssl req -new -key keys/vncap.key -out keys/vncap.csr
- $ openssl x509 -req -in keys/vncap.csr -signkey keys/vncap.key -out
+    $ openssl genrsa -out keys/vncap.key 1024
+    $ openssl req -new -key keys/vncap.key -out keys/vncap.csr
+    $ openssl x509 -req -in keys/vncap.csr -signkey keys/vncap.key -out
    keys/vncap.crt
