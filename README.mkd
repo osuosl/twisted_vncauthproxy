@@ -67,4 +67,4 @@ To generate simple keys, an example series of OpenSSL invocations might be::
     $ openssl genrsa -out keys/vncap.key 1024
     $ openssl req -new -key keys/vncap.key -out keys/vncap.csr
     $ openssl x509 -req -in keys/vncap.csr -signkey keys/vncap.key -out
-   keys/vncap.crt
+    keys/vncap.crt
