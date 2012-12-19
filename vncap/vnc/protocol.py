@@ -5,7 +5,7 @@ from twisted.internet.defer import Deferred
 from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
 
-from vncap.d3des import generate_response
+from vncap.vnc.d3des import generate_response
 
 def check_password(challenge, response, password):
     password = password.ljust(8, "\x00")[:8]

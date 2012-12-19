@@ -7,8 +7,9 @@ from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 
-from vncap.factory import VNCProxy
 from txws import WebSocketFactory
+
+from vncap.vnc.factory import VNCProxy
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.

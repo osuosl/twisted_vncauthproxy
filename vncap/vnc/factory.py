@@ -4,7 +4,7 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.protocol import Factory
 from twisted.python import log
 
-from vncap.protocol import VNCServerAuthenticator, VNCClientAuthenticator
+from vncap.vnc.protocol import VNCServerAuthenticator, VNCClientAuthenticator
 
 def start_proxying(results):
     """
