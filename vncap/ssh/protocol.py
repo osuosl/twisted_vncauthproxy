@@ -12,7 +12,7 @@ from twisted.conch.ssh.userauth import SSHUserAuthClient
 from twisted.conch.telnet import TelnetProtocol
 from twisted.internet import reactor
 from twisted.internet.defer import succeed
-from twisted.internet.protocol import ClientCreator
+from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.portforward import Proxy
 from twisted.python import log
 
@@ -47,7 +47,9 @@ class Session(ChannelBase):
         return True
 
     def request_shell(self, data):
-        d = cc.connectTCP("localhost", 9000)
+        endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
+                                      timeout=30)
+        d = endpoint.connect(CommandTransport(self.command))
         @d.addCallback
         def cb(protocol):
             protocol.client = self
@@ -149,7 +151,9 @@ class TelnetProxy(TelnetProtocol):
     def connectionMade(self):
         self.proxy.transport = self.transport
 
-        d = cc.connectTCP("localhost", 9000)
+        endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
+                                      timeout=30)
+        d = endpoint.connect(CommandTransport(self.command))
         @d.addCallback
         def cb(protocol):
             protocol.client = self
@@ -167,8 +171,3 @@ class TelnetProxy(TelnetProtocol):
 
 command = ['/usr/bin/socat', 'STDIO,raw,echo=0,escape=0x1d',
            'UNIX-CONNECT:/var/run/ganeti/kvm-hypervisor/ctrl/instance1.example.org.serial']
-
-cc = ClientCreator(reactor, CommandTransport, command)
-
-private = Key.fromFile("keys/id_rsa_vncap")
-public = Key.fromFile("keys/id_rsa_vncap.pub")
