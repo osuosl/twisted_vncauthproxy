@@ -1,6 +1,6 @@
 import unittest
 
-from vncap.protocol import VNCServerAuthenticator
+from vncap.vnc.protocol import VNCServerAuthenticator
 
 class DummyTransport(object):
 
@@ -16,7 +16,7 @@ class DummyTransport(object):
 class TestVNCServerAuthenticator(unittest.TestCase):
 
     def setUp(self):
-        self.p = VNCServerAuthenticator("password")
+        self.p = VNCServerAuthenticator("password", {})
         self.t = DummyTransport()
         self.p.makeConnection(self.t)
 
