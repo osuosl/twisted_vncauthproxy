@@ -1,32 +1,21 @@
 import os
-import sys
 
-from twisted.python import log
-log.startLogging(sys.stdout)
-
-from twisted.conch.avatar import ConchUser
-from twisted.conch.interfaces import IConchUser
 from twisted.conch.ssh.channel import SSHChannel
 from twisted.conch.ssh.common import NS
 from twisted.conch.ssh.connection import SSHConnection
-from twisted.conch.ssh.factory import SSHFactory
 from twisted.conch.ssh.keys import Key
 from twisted.conch.ssh.session import (SSHSessionProcessProtocol,
                                        wrapProtocol, packRequest_pty_req,
                                        parseRequest_pty_req)
 from twisted.conch.ssh.transport import SSHClientTransport
 from twisted.conch.ssh.userauth import SSHUserAuthClient
-from twisted.conch.telnet import ITelnetProtocol
-from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
-from twisted.cred.portal import IRealm, Portal
+from twisted.conch.telnet import TelnetProtocol
 from twisted.internet import reactor
 from twisted.internet.defer import succeed
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols.portforward import Proxy
-from zope.interface import implements
+from twisted.python import log
 
-checker = InMemoryUsernamePasswordDatabaseDontUse()
-checker.addUser("simpson", "hurp")
 
 def attach_protocol_to_channel(protocol, channel):
     # These are from
@@ -39,6 +28,7 @@ def attach_protocol_to_channel(protocol, channel):
     # And this one's from me :3
     channel.dataReceived = protocol.dataReceived
 
+
 class ChannelBase(SSHChannel):
 
     name = "session"
@@ -48,6 +38,7 @@ class ChannelBase(SSHChannel):
 
         self.proxy = Proxy()
         attach_protocol_to_channel(self.proxy, self)
+
 
 class Session(ChannelBase):
 
@@ -70,6 +61,7 @@ class Session(ChannelBase):
     def closed(self):
         self.loseConnection()
         self.proxy.transport.loseConnection()
+
 
 class SocatChannel(ChannelBase):
 
@@ -94,10 +86,12 @@ class SocatChannel(ChannelBase):
         self.proxy.transport.loseConnection()
         self.conn.client.loseConnection()
 
+
 USER = 'root'  # replace this with a valid username
 HOST = 'localhost' # and a valid host
 
 key_path = "keys/id_rsa_client"
+
 
 class KeyOnlyAuth(SSHUserAuthClient):
 
@@ -114,6 +108,7 @@ class KeyOnlyAuth(SSHUserAuthClient):
     def getPrivateKey(self):
         return succeed(Key.fromFile(key_path))
 
+
 class SocatConnection(SSHConnection):
 
     def __init__(self, client):
@@ -123,6 +118,7 @@ class SocatConnection(SSHConnection):
     def serviceStarted(self):
         self.channel = SocatChannel(conn=self)
         self.openChannel(self.channel)
+
 
 class CommandTransport(SSHClientTransport):
     """
@@ -141,10 +137,6 @@ class CommandTransport(SSHClientTransport):
         self.conn = SocatConnection(self.client)
         self.requestService(KeyOnlyAuth(USER, self.conn))
 
-from twisted.internet.protocol import Factory
-from twisted.conch.telnet import (TelnetTransport,
-                                  AuthenticatingTelnetProtocol,
-                                  TelnetProtocol)
 
 class TelnetProxy(TelnetProtocol):
 
@@ -172,26 +164,6 @@ class TelnetProxy(TelnetProtocol):
     def loseConnection(self):
         self.transport.loseConnection()
 
-class TelnetFactory(Factory):
-
-    protocol = lambda none: TelnetTransport(AuthenticatingTelnetProtocol, portal)
-
-class Realm(object):
-    implements(IRealm)
-
-    def requestAvatar(self, avatarId, mind, *interfaces):
-        if IConchUser in interfaces:
-            user = ConchUser()
-            user.channelLookup["session"] = Session
-            return IConchUser, user, lambda: None
-
-        if ITelnetProtocol in interfaces:
-            return ITelnetProtocol, TelnetProxy(), lambda: None
-
-        return None
-
-portal = Portal(Realm())
-portal.registerChecker(checker)
 
 command = ['/usr/bin/socat', 'STDIO,raw,echo=0,escape=0x1d',
            'UNIX-CONNECT:/var/run/ganeti/kvm-hypervisor/ctrl/instance1.example.org.serial']
@@ -200,14 +172,3 @@ cc = ClientCreator(reactor, CommandTransport, command)
 
 private = Key.fromFile("keys/id_rsa_vncap")
 public = Key.fromFile("keys/id_rsa_vncap.pub")
-
-factory = SSHFactory()
-
-factory.privateKeys = {"ssh-rsa": private}
-factory.publicKeys = {"ssh-rsa": public}
-
-factory.portal = portal
-
-reactor.listenTCP(2022, factory)
-reactor.listenTCP(2023, TelnetFactory())
-reactor.run()
