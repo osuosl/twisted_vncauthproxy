@@ -1,7 +1,7 @@
 Twisted VNC Authentication Proxy (TVAP) (VNCAP)
 ===============================================
 
-This is woefully incomplete.
+This is woefully incomplete.  And now it can proxy SSH as well as VNC!
 
 If you are using Fx4 or earlier, you need to use a WebSocket Flash
 emulator and thus you will need to serve a Flash policy. A simple policy
@@ -42,16 +42,18 @@ following required keys:
 
  * ``daddr``: The destination hostname for the VNC backend
  * ``dport``: The destination port for the VNC backend
- * ``password``: A password for the VNC frontend conection
+ * ``type``: What type of session should be served.  Valid values are ``vnc`` and ``ssh``.
 
 The following keys are optional:
 
  * ``sport``: The preferred source port for the VNC frontend
+ * ``password``: A password for the VNC frontend connection
  * ``ws``: Whether the frontend should be wrapped for WebSockets
  * ``tls``: Whether the frontend should be wrapped with TLS for SSL/WSS
+ * ``client_opts``: Any other client options should be included here.
 
 If the requsted ``sport`` is not available, one will be automatically
-assigned.
+assigned from the pool.
 
 TLS
 ===
@@ -70,3 +72,20 @@ be:
     $ openssl req -new -key keys/vncap.key -out keys/vncap.csr
     $ openssl x509 -req -in keys/vncap.csr -signkey keys/vncap.key -out
     keys/vncap.crt
+
+SSH
+===
+
+The proxy will connect to the destination host via SSH if the ``type``
+flag is set to ``ssh``.  SSH requires WebSockets wrapping and is
+incompatible with TLS wrapping so those optional flags are forced to
+their appropriate values.  I think.
+
+Like TLS, SSH requires keys to be generated.  Here is an example
+series of commands to create the correct type of keys for this
+software:
+
+   $ ssh-keygen -t rsa -f keys/id_rsa_client
+
+Be sure to enter an empty passphrase!
+
