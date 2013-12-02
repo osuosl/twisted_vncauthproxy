@@ -50,9 +50,11 @@ class Session(ChannelBase):
         endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
                                       timeout=30)
         d = endpoint.connect(CommandTransport(self.command))
+
         @d.addCallback
         def cb(protocol):
             protocol.client = self
+
         @d.addErrback
         def eb(failure):
             log.err(failure)
@@ -77,6 +79,7 @@ class SocatChannel(ChannelBase):
 
         d = self.conn.sendRequest(self, 'exec', NS(" ".join(command)),
                                   wantReply=1)
+
         @d.addCallback
         def cb(chaff):
             other = self.conn.client.proxy
@@ -90,7 +93,7 @@ class SocatChannel(ChannelBase):
 
 
 USER = 'root'  # replace this with a valid username
-HOST = 'localhost' # and a valid host
+HOST = 'localhost'  # and a valid host
 
 key_path = "keys/id_rsa_client"
 
@@ -154,9 +157,11 @@ class TelnetProxy(TelnetProtocol):
         endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
                                       timeout=30)
         d = endpoint.connect(CommandTransport(self.command))
+
         @d.addCallback
         def cb(protocol):
             protocol.client = self
+
         @d.addErrback
         def eb(failure):
             log.err(failure)

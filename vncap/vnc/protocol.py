@@ -7,6 +7,7 @@ from twisted.python import log
 
 from vncap.vnc.d3des import generate_response
 
+
 def check_password(challenge, response, password):
     password = password.ljust(8, "\x00")[:8]
     return generate_response(password, challenge) == response
@@ -18,6 +19,7 @@ def check_password(challenge, response, password):
     STATE_RESULT,
     STATE_CONNECTED
 ) = range(5)
+
 
 class VNCAuthenticator(StatefulProtocol):
     """
@@ -41,6 +43,7 @@ class VNCAuthenticator(StatefulProtocol):
         log.msg("Successfully authenticated %s!" % self)
         self.transport.pauseProducing()
         reactor.callLater(0, self.authentication_d.callback, self)
+
 
 class VNCServerAuthenticator(VNCAuthenticator):
     """
@@ -122,6 +125,7 @@ class VNCServerAuthenticator(VNCAuthenticator):
         # Send a u32 0, for success.
         self.transport.write("\x00\x00\x00\x00")
         VNCAuthenticator.authenticated(self)
+
 
 class VNCClientAuthenticator(VNCAuthenticator):
     """

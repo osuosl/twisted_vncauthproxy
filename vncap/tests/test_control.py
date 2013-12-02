@@ -4,6 +4,7 @@ from twisted.trial import unittest
 
 from vncap.control import ControlProtocol, ControlFactory
 
+
 class DummyTransport(object):
 
     def __init__(self):
@@ -15,6 +16,7 @@ class DummyTransport(object):
     def loseConnection(self):
         pass
 
+
 class DummyControlFactory(object):
 
     def allocate_port(self, port=None):
@@ -24,6 +26,7 @@ class DummyControlFactory(object):
 
     def free_port(self, port):
         pass
+
 
 class TestControlFactory(unittest.TestCase):
 
@@ -56,6 +59,7 @@ class TestControlFactory(unittest.TestCase):
         self.cf.free_port(port)
         self.assertTrue(port in self.cf.pool)
 
+
 class TestControlProtocol(unittest.TestCase):
 
     def setUp(self):
@@ -63,6 +67,7 @@ class TestControlProtocol(unittest.TestCase):
 
     def test_trivial(self):
         pass
+
 
 class TestControlProtocolUsage(unittest.TestCase):
 

@@ -6,6 +6,7 @@ from twisted.python import log
 
 from vncap.vnc.protocol import VNCServerAuthenticator, VNCClientAuthenticator
 
+
 def start_proxying(results):
     """
     Callback to start proxies.
@@ -37,6 +38,7 @@ def start_proxying(results):
     client.transport.resumeProducing()
     log.msg("Proxying started!")
 
+
 def prepare_proxy(client, server):
     """
     Set up the deferred proxy callback.
@@ -53,6 +55,7 @@ def prepare_proxy(client, server):
         client.transport.loseConnection()
         server.transport.loseConnection()
 
+
 class VNCClientAuthenticatorFactory(Factory):
     protocol = VNCClientAuthenticator
 
@@ -63,6 +66,7 @@ class VNCClientAuthenticatorFactory(Factory):
         p = self.protocol(self.password)
         p.factory = self
         return p
+
 
 class VNCProxy(Factory):
     """

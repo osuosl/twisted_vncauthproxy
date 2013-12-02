@@ -41,19 +41,21 @@ from struct import pack, unpack
 ###
 
 # This constant was taken from vncviewer/rfb/vncauth.c:
-vnckey = [ 23,82,107,6,35,78,88,7 ]
+vnckey = [23, 82, 107, 6, 35, 78, 88, 7]
 
 # This is a departure from the original code.
-#bytebit = [ 0200, 0100, 040, 020, 010, 04, 02, 01 ] # original
-bytebit = [ 01, 02, 04, 010, 020, 040, 0100, 0200 ] # VNC version
+#bytebit = [ 0200, 0100, 040, 020, 010, 04, 02, 01 ]  # original
+bytebit = [01, 02, 04, 010, 020, 040, 0100, 0200]  # VNC version
+
 
 # two password functions for VNC protocol.
 def decrypt_passwd(data):
     dk = deskey(pack('8B', *vnckey), True)
     return desfunc(data, dk)
 
+
 def generate_response(passwd, challange):
-    ek = deskey((passwd+'\x00'*8)[:8], False)
+    ek = deskey((passwd + '\x00' * 8)[:8], False)
     return desfunc(challange[:8], ek) + desfunc(challange[8:], ek)
 
 ###
@@ -80,7 +82,7 @@ pc1 = [
   13,  5, 60, 52, 44, 36, 28,   20, 12,  4, 27, 19, 11,  3
   ]
 
-totrot = [ 1,2,4,6,8,10,12,14,15,17,19,21,23,25,27,28 ]
+totrot = [1, 2, 4, 6, 8, 10, 12, 14, 15, 17, 19, 21, 23, 25, 27, 28]
 
 pc2 = [
   13, 16, 10, 23,  0,  4,  2, 27, 14,  5, 20,  9,
@@ -89,12 +91,13 @@ pc2 = [
   43, 48, 38, 55, 33, 52, 45, 41, 49, 35, 28, 31
   ]
 
+
 def deskey(key, decrypt):      # Thanks to James Gillogly & Phil Karn!
     key = unpack('8B', key)
 
-    pc1m = [0]*56
-    pcr = [0]*56
-    kn = [0L]*32
+    pc1m = [0] * 56
+    pcr = [0] * 56
+    kn = [0L] * 32
 
     for j in range(56):
         l = pc1[j]
@@ -126,21 +129,22 @@ def deskey(key, decrypt):      # Thanks to James Gillogly & Phil Karn!
         for j in range(24):
             if pcr[pc2[j]]:
                 kn[m] |= bigbyte[j]
-            if pcr[pc2[j+24]]:
+            if pcr[pc2[j + 24]]:
                 kn[n] |= bigbyte[j]
 
     return cookey(kn)
 
+
 def cookey(raw):
     key = []
     for i in range(0, 32, 2):
-        (raw0, raw1) = (raw[i], raw[i+1])
-        k  = (raw0 & 0x00fc0000L) << 6
+        (raw0, raw1) = (raw[i], raw[i + 1])
+        k = (raw0 & 0x00fc0000L) << 6
         k |= (raw0 & 0x00000fc0L) << 10
         k |= (raw1 & 0x00fc0000L) >> 10
         k |= (raw1 & 0x00000fc0L) >> 6
         key.append(k)
-        k  = (raw0 & 0x0003f000L) << 12
+        k = (raw0 & 0x0003f000L) << 12
         k |= (raw0 & 0x0000003fL) << 16
         k |= (raw1 & 0x0003f000L) >> 4
         k |= (raw1 & 0x0000003fL)
@@ -299,6 +303,7 @@ SP8 = [
   0x00001040L, 0x00040040L, 0x10000000L, 0x10041000L
   ]
 
+
 def desfunc(block, keys):
     (leftt, right) = unpack('>II', block)
 
@@ -321,27 +326,27 @@ def desfunc(block, keys):
     leftt = ((leftt << 1) | ((leftt >> 31) & 1L)) & 0xffffffffL
 
     for i in range(0, 32, 4):
-        work  = (right << 28) | (right >> 4)
+        work = (right << 28) | (right >> 4)
         work ^= keys[i]
-        fval  = SP7[ work            & 0x3fL]
-        fval |= SP5[(work >>  8) & 0x3fL]
+        fval = SP7[work & 0x3fL]
+        fval |= SP5[(work >> 8) & 0x3fL]
         fval |= SP3[(work >> 16) & 0x3fL]
         fval |= SP1[(work >> 24) & 0x3fL]
-        work  = right ^ keys[i+1]
-        fval |= SP8[ work            & 0x3fL]
-        fval |= SP6[(work >>  8) & 0x3fL]
+        work = right ^ keys[i + 1]
+        fval |= SP8[work & 0x3fL]
+        fval |= SP6[(work >> 8) & 0x3fL]
         fval |= SP4[(work >> 16) & 0x3fL]
         fval |= SP2[(work >> 24) & 0x3fL]
         leftt ^= fval
-        work  = (leftt << 28) | (leftt >> 4)
-        work ^= keys[i+2]
-        fval  = SP7[ work            & 0x3fL]
-        fval |= SP5[(work >>  8) & 0x3fL]
+        work = (leftt << 28) | (leftt >> 4)
+        work ^= keys[i + 2]
+        fval = SP7[work & 0x3fL]
+        fval |= SP5[(work >> 8) & 0x3fL]
         fval |= SP3[(work >> 16) & 0x3fL]
         fval |= SP1[(work >> 24) & 0x3fL]
-        work  = leftt ^ keys[i+3]
-        fval |= SP8[ work            & 0x3fL]
-        fval |= SP6[(work >>  8) & 0x3fL]
+        work = leftt ^ keys[i + 3]
+        fval |= SP8[work & 0x3fL]
+        fval |= SP6[(work >> 8) & 0x3fL]
         fval |= SP4[(work >> 16) & 0x3fL]
         fval |= SP2[(work >> 24) & 0x3fL]
         right ^= fval

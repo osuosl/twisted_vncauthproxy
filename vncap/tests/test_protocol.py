@@ -2,6 +2,7 @@ import unittest
 
 from vncap.vnc.protocol import VNCServerAuthenticator
 
+
 class DummyTransport(object):
 
     buf = ""
@@ -12,6 +13,7 @@ class DummyTransport(object):
 
     def loseConnection(self):
         self.lost = True
+
 
 class TestVNCServerAuthenticator(unittest.TestCase):
 
@@ -35,3 +37,6 @@ class TestVNCServerAuthenticator(unittest.TestCase):
         self.t.buf = ""
         self.p.check_version("RFB 002.000\n")
         self.assertTrue(self.t.lost)
+
+
+# JMT: need to write tests for SSH protocol!
