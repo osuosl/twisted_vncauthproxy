@@ -95,7 +95,8 @@ class TestControlProtocolUsage(unittest.TestCase):
             "sport": 1,
             "dport": 11048,
             "daddr": "localhost",
-            "password": "fhqwhgads"
+            "password": "fhqwhgads",
+            "type": "vnc"
         }""")
         self.assertTrue(self.cp.transport.buf.startswith("FAILED"))
 
@@ -110,7 +111,8 @@ class TestControlProtocolUsage(unittest.TestCase):
             "sport": 55555,
             "dport": 11048,
             "daddr": "localhost",
-            "password": "fhqwhgads"
+            "password": "fhqwhgads",
+            "type": "vnc"
         }""")
         self.assertTrue(self.cp.transport.buf.startswith("55555"))
 
