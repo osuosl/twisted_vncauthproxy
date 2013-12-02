@@ -10,12 +10,14 @@ from twisted.python import log
 from txws import WebSocketFactory
 
 from vncap.vnc.factory import VNCProxy
+from vncap.ssh.protocol import TelnetProxy
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.
 # To use a different port range, simply change the following two lines.
 FIRST_PORT = 5800
 LAST_PORT = 5900
+
 
 class ControlProtocol(LineReceiver):
 
@@ -26,9 +28,12 @@ class ControlProtocol(LineReceiver):
             # Required names.
             host = d["daddr"]
             dport = d["dport"]
-            password = d["password"]
+            # JMT: "type" is required: either "vnc" or "ssh"
+            session_type = d["type"]
             # Optional names.
-            sport = d.get("sport")
+            # JMT: password no longer required!
+            password = d.get("password", "")
+            sport = d.get("sport", None)
             ws = d.get("ws", False)
             tls = d.get("tls", False)
             client_opts = d.get("client", {})
@@ -36,7 +41,21 @@ class ControlProtocol(LineReceiver):
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
-            factory = VNCProxy(host, dport, password, client_opts)
+            if session_type == "vnc":
+                factory = VNCProxy(host, dport, password, client_opts)
+            elif session_type == "ssh":
+                # JMT: the SSH proxy requires ws=True and tls=False.  I think.
+                ws = True
+                tls = False
+                # JMT: not happy about this guessing game
+                factory = TelnetProxy()
+                factory.host = host
+                factory.port = dport
+                # JMT: password not required or desired
+                # JMT: client_options also not required or desired
+            else:
+                # JMT: trap errors someday
+                factory = VNCProxy(host, dport, password, client_opts)
 
             if ws:
                 factory = WebSocketFactory(factory)
@@ -66,6 +85,7 @@ class ControlProtocol(LineReceiver):
             self.sendLine("FAILED")
 
         self.transport.loseConnection()
+
 
 class ControlFactory(ServerFactory):
     protocol = ControlProtocol
