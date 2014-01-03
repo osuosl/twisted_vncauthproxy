@@ -13,6 +13,8 @@ setup(
         "Twisted>=10.2.0",
         "txWS>=0.6",
         "pyopenssl",
+	"pycrypto",
+	"pyasn1",
     ],
     author="Corbin Simpson",
     author_email="simpsoco@osuosl.org",

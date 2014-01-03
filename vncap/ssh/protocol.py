@@ -11,10 +11,14 @@ from twisted.conch.ssh.transport import SSHClientTransport
 from twisted.conch.ssh.userauth import SSHUserAuthClient
 from twisted.conch.telnet import TelnetProtocol
 from twisted.internet import reactor
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, Deferred
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.portforward import Proxy
+from twisted.protocols.stateful import StatefulProtocol
 from twisted.python import log
+
+
+key_path = "keys/id_rsa_client"
 
 
 def attach_protocol_to_channel(protocol, channel):
@@ -50,9 +54,11 @@ class Session(ChannelBase):
         endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
                                       timeout=30)
         d = endpoint.connect(CommandTransport(self.command))
+
         @d.addCallback
         def cb(protocol):
             protocol.client = self
+
         @d.addErrback
         def eb(failure):
             log.err(failure)
@@ -77,6 +83,7 @@ class SocatChannel(ChannelBase):
 
         d = self.conn.sendRequest(self, 'exec', NS(" ".join(command)),
                                   wantReply=1)
+
         @d.addCallback
         def cb(chaff):
             other = self.conn.client.proxy
@@ -87,12 +94,6 @@ class SocatChannel(ChannelBase):
         self.loseConnection()
         self.proxy.transport.loseConnection()
         self.conn.client.loseConnection()
-
-
-USER = 'root'  # replace this with a valid username
-HOST = 'localhost' # and a valid host
-
-key_path = "keys/id_rsa_client"
 
 
 class KeyOnlyAuth(SSHUserAuthClient):
@@ -130,6 +131,8 @@ class CommandTransport(SSHClientTransport):
 
     def __init__(self, command):
         self.command = command
+        self.authentication_d = Deferred()
+        self._sful_data = None, None, 0
 
     def verifyHostKey(self, hostKey, fingerprint):
         print 'host key fingerprint: %s' % fingerprint
@@ -138,29 +141,27 @@ class CommandTransport(SSHClientTransport):
     def connectionSecure(self):
         self.conn = SocatConnection(self.client)
         self.requestService(KeyOnlyAuth(USER, self.conn))
+        # XXX Authenticated?
+        reactor.callLater(0, self.authentication_d.callback, self)
 
 
-class TelnetProxy(TelnetProtocol):
+class SerialProxy(StatefulProtocol):
 
-    term = "xterm"
-    size = (24, 80, 0, 0)
-
-    def __init__(self):
+    def __init__(self, password, options):
         self.proxy = Proxy()
+        self.authentication_d = Deferred()
+        self.password = password
+        self.options = options
+        if 'password' in options:
+            self.password = options['password']
 
     def connectionMade(self):
-        self.proxy.transport = self.transport
+        log.msg("Received incoming connection")
+        self.transport.write('Password:')
 
-        endpoint = TCP4ClientEndpoint(reactor, self.host, self.port,
-                                      timeout=30)
-        d = endpoint.connect(CommandTransport(self.command))
-        @d.addCallback
-        def cb(protocol):
-            protocol.client = self
-        @d.addErrback
-        def eb(failure):
-            log.err(failure)
-            self.transport.loseConnection()
+    def getInitialState(self):
+        self.verify_ip()
+        return self.check_password, len(self.password)
 
     def dataReceived(self, data):
         self.proxy.dataReceived(data)
@@ -168,6 +169,23 @@ class TelnetProxy(TelnetProtocol):
     def loseConnection(self):
         self.transport.loseConnection()
 
+    def check_password(self, response):
+        log.msg("Checking password: buf %r" % response)
+        if response in self.password:
+            self.authenticated()
+        else:
+            log.err("Password did not match %s!" % self.password)
+            self.transport.loseConnection()
 
-command = ['/usr/bin/socat', 'STDIO,raw,echo=0,escape=0x1d',
-           'UNIX-CONNECT:/var/run/ganeti/kvm-hypervisor/ctrl/instance1.example.org.serial']
+    def verify_ip(self):
+        if 'ip' in self.options:
+            if self.options['ip'] != self.transport.getPeer().host:
+                log.err("Failed to verify client IP")
+                self.transport.loseConnection()
+            else:
+                log.msg("Verified client IP")
+
+    def authenticated(self):
+        log.msg("Successfully authenticated %s!" % self)
+        self.transport.pauseProducing()
+        reactor.callLater(0, self.authentication_d.callback, self)

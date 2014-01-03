@@ -10,12 +10,14 @@ from twisted.python import log
 from txws import WebSocketFactory
 
 from vncap.vnc.factory import VNCProxy
+from vncap.ssh.factory import SSHProxy
 
 # Allowed proxy port ranges.
 # By default, this is the VNC port range.
 # To use a different port range, simply change the following two lines.
 FIRST_PORT = 5800
 LAST_PORT = 5900
+
 
 class ControlProtocol(LineReceiver):
 
@@ -28,6 +30,8 @@ class ControlProtocol(LineReceiver):
             dport = d["dport"]
             password = d["password"]
             # Optional names.
+            user = d.get("user", None)
+            command = d.get("command", None)
             sport = d.get("sport")
             ws = d.get("ws", False)
             tls = d.get("tls", False)
@@ -36,9 +40,21 @@ class ControlProtocol(LineReceiver):
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
 
-            factory = VNCProxy(host, dport, password, client_opts)
+            if command is not None:
+                # SSH proxy is indicated by presence of 'command'.
+                log.msg('SSH proxy detected!')
+                # 'user' is required here!
+                if user is None:
+                    log.msg('user is required for serial proxy')
+                    self.sendLine("FAILED")
+                    self.transport.loseConnection()
+                factory = SSHProxy(host, dport, password, user, command, client_opts)
+            else:
+                log.msg('VNC proxy detected!')
+                factory = VNCProxy(host, dport, password, client_opts)
 
             if ws:
+                log.msg('websockets required!')
                 factory = WebSocketFactory(factory)
             if tls:
                 context = DefaultOpenSSLContextFactory("keys/vncap.key",
@@ -66,6 +82,7 @@ class ControlProtocol(LineReceiver):
             self.sendLine("FAILED")
 
         self.transport.loseConnection()
+
 
 class ControlFactory(ServerFactory):
     protocol = ControlProtocol
