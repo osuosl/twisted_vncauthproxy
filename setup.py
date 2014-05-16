@@ -11,7 +11,7 @@ setup(
     ],
     install_requires=[
         "Twisted>=10.2.0",
-        "txWS>=0.6",
+        "txWS==0.9.1",
         "pyopenssl",
     ],
     author="Corbin Simpson",
