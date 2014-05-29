@@ -8,6 +8,8 @@ setup(
     packages=[
         "twisted.plugins",
         "vncap",
+        "vncap.vnc",
+        "vncap.ssh"
     ],
     install_requires=[
         "Twisted>=10.2.0",
