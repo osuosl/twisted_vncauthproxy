@@ -1,6 +1,11 @@
 Changelog
 ========
 
+1.1.1
+-----
+
+* Include vncap ssh and vnc modules
+
 1.1
 ---
 
