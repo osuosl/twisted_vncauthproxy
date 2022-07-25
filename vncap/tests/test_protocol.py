@@ -13,6 +13,9 @@ class DummyTransport(object):
     def loseConnection(self):
         self.lost = True
 
+    def pauseProducing(self):
+        pass
+
 class TestVNCServerAuthenticator(unittest.TestCase):
 
     def setUp(self):
@@ -29,9 +32,20 @@ class TestVNCServerAuthenticator(unittest.TestCase):
     def test_check_version(self):
         self.t.buf = ""
         self.p.check_version("RFB 003.008\n")
-        self.assertEqual(self.t.buf, "\x02\x01\x02")
+        self.assertEqual(self.t.buf, "\x01\x02")
 
     def test_check_invalid_version(self):
         self.t.buf = ""
         self.p.check_version("RFB 002.000\n")
         self.assertTrue(self.t.lost)
+
+    def test_select_security_type_none(self):
+        self.t.buf = ""
+        self.p.select_security_type("\x01")
+        self.assertTrue(self.t.lost)
+
+    def test_select_security_type_vnc_auth(self):
+        self.t.buf = ""
+        self.p.select_security_type("\x02")
+        self.assertFalse(self.t.lost)
+        self.assertEqual(len(self.t.buf), 16)
