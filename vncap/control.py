@@ -32,6 +32,7 @@ class ControlProtocol(LineReceiver):
             ws = d.get("ws", False)
             tls = d.get("tls", False)
             client_opts = d.get("client", {})
+            timeout_secs = d.get("timeout", 30)
 
             # Allocate the source port.
             sport = self.factory.allocate_port(sport)
@@ -52,7 +53,7 @@ class ControlProtocol(LineReceiver):
                 log.msg("Timed out connection on port %d" % sport)
                 listening.stopListening()
                 self.factory.free_port(sport)
-            reactor.callLater(30, timeout)
+            reactor.callLater(timeout_secs, timeout)
 
             log.msg("New forwarder (%d->%s:%d)" % (sport, host, dport))
             self.sendLine("%d" % sport)
