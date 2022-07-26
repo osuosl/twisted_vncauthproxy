@@ -5,6 +5,7 @@ from setuptools import setup
 setup(
     name="VNCAuthProxy",
     version="1.1.1",
+    python_requires='<3.0',
     packages=[
         "twisted.plugins",
         "vncap",
@@ -12,15 +13,22 @@ setup(
         "vncap.ssh"
     ],
     install_requires=[
-        "Twisted>=10.2.0",
+        "Twisted>=10.2.0,<20.4.0",
         "txWS==0.9.1",
-        "pyopenssl",
+        "pyopenssl<22.0.0",
+        # Set ceilings which still support python2 for dependencies
+        "cryptography<3.4",
+        "idna<3.0",
+        "pyasn1",
+        "PyHamcrest<2.0",
+        "service-identity",
+        "typing<3.10",
     ],
-    author="Corbin Simpson",
-    author_email="simpsoco@osuosl.org",
+    author="Corbin Simpson, OSU Open Source Lab",
+    author_email="simpsoco@osuosl.org, pypi@osuosl.org",
     description="A Twisted-based VNC proxy",
     license="GPL2",
-    url="http://code.osuosl.org/projects/twisted-vncauthproxy",
+    url="https://github.com/osuosl/twisted_vncauthproxy",
 )
 
 # Regenerate Twisted plugin cache.
