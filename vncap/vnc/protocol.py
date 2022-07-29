@@ -73,8 +73,8 @@ class VNCServerAuthenticator(VNCAuthenticator):
 
         if version == self.VERSION:
             log.msg("Client version %s is valid" % version.strip())
-            # Hardcoded: 2 security types: None and VNC Auth.
-            self.transport.write("\x02\x01\x02")
+            # Hardcoded: 1 security type: VNC Auth.
+            self.transport.write("\x01\x02")
             return self.select_security_type, 1
         else:
             log.err("Can't handle VNC version %r" % version)
@@ -93,9 +93,6 @@ class VNCServerAuthenticator(VNCAuthenticator):
             self.transport.write(self.challenge)
 
             return self.vnc_authentication_result, 16
-        elif security_type == 1:
-            # No authentication. Just move to the SecurityResult.
-            self.authenticated()
         else:
             log.err("Couldn't agree on an authentication scheme!")
             self.transport.loseConnection()
