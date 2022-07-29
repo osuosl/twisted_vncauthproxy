@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="VNCAuthProxy",
-    version="1.1.1",
+    version="1.2.0",
     python_requires='<3.0',
     packages=[
         "twisted.plugins",
